@@ -231,9 +231,16 @@ execute_build() {
             log_success "Build completed successfully"
             
             # Check for generated ISO
-            if [[ -f "$SCRIPT_DIR/ubuntu.iso" ]]; then
+            # Check for ISO in RAM first, then copy if needed
+            if [[ -f "$BUILD_ROOT/ubuntu.iso" ]]; then
+                local iso_size=$(du -h "$BUILD_ROOT/ubuntu.iso" | cut -f1)
+                log_success "ISO generated in RAM: $BUILD_ROOT/ubuntu.iso ($iso_size)"
+                log_info "Copying ISO from RAM to current directory..."
+                cp "$BUILD_ROOT/ubuntu.iso" "$SCRIPT_DIR/ubuntu.iso"
+                log_success "ISO copied to: $SCRIPT_DIR/ubuntu.iso"
+            elif [[ -f "$SCRIPT_DIR/ubuntu.iso" ]]; then
                 local iso_size=$(du -h "$SCRIPT_DIR/ubuntu.iso" | cut -f1)
-                log_success "ISO generated: ubuntu.iso ($iso_size)"
+                log_success "ISO found: ubuntu.iso ($iso_size)"
                 log_success "ISO contains all packages from package-installation.sh module"
                 return 0
             else

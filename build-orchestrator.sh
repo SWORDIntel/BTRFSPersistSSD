@@ -113,6 +113,7 @@ fi
 BUILD_ROOT="${BUILD_ROOT:-/tmp/build}"
 CHROOT_DIR="$BUILD_ROOT/chroot"
 ISO_DIR="$BUILD_ROOT/iso"
+ISO_OUTPUT="$BUILD_ROOT/ubuntu.iso"  # Keep ISO in RAM!
 MODULE_DIR="$REPO_ROOT/src/modules"
 PYTHON_DIR="$REPO_ROOT/src/python"
 CONFIG_DIR="$REPO_ROOT/src/config"
@@ -135,6 +136,7 @@ declare -A MODULE_EXECUTION_ORDER=(
     [25]="stages-enhanced/03-mmdebstrap-bootstrap"  # Enhanced bootstrap stage
     [30]="config-apply"              # Reapply configs to chroot
     [35]="zfs-builder"              # Build ZFS 2.3.4 from source if needed
+    [38]="dell-cctk-builder"        # Build Dell CCTK and TPM2 tools
     [40]="kernel-compilation"
     [50]="package-installation"    # CRITICAL - Installs all packages
     [60]="system-configuration"

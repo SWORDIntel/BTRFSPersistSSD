@@ -351,9 +351,23 @@ HARDWARE_PACKAGES=(
     "intel-gpu-tools" "intel-media-va-driver" "i965-va-driver"
     "thermald" "powertop"
     
-    # Dell hardware
+    # Dell hardware and management tools
     "libsmbios2" "smbios-utils" "dell-recovery"
     "oem-config" "oem-config-gtk"
+    "fwupd" "fwupdate" "fwupd-signed"
+    
+    # TPM2 tools and libraries
+    "tpm2-tools" "tpm2-abrmd" "tpm2-initramfs-tool"
+    "libtss2-dev" "libtss2-mu0" "libtss2-sys1"
+    "libtss2-esys0" "libtss2-rc0" "libtss2-tctildr0"
+    "libtss2-tcti-cmd0" "libtss2-tcti-device0"
+    "libtss2-tcti-mssim0" "libtss2-tcti-swtpm0"
+    "tpm2-openssl" "python3-tpm2-pytss"
+    
+    # Additional TPM/Security tools
+    "trousers" "tpm-tools" "libtspi1"
+    "clevis" "clevis-tpm2" "clevis-luks"
+    "sbsigntool" "pesign" "efitools"
     
     # General hardware
     "lm-sensors" "fancontrol" "hddtemp" "acpi"
