@@ -86,13 +86,40 @@ source_common_functions
 #=============================================================================
 
 # Build directories and parameters
+# Use RAM disk for build if available (much faster)
+if [[ -z "${BUILD_ROOT:-}" ]]; then
+    if [[ -d /dev/shm ]] && [[ $(df -BG /dev/shm 2>/dev/null | tail -1 | awk '{print $4}' | sed 's/G//') -ge 20 ]]; then
+        BUILD_ROOT="/dev/shm/build"
+        echo -e "Using RAM disk for build: /dev/shm (faster performance)"
+    elif mountpoint -q /tmp/ramdisk-build 2>/dev/null; then
+        BUILD_ROOT="/tmp/ramdisk-build"
+        echo -e "Using existing RAM disk mount: /tmp/ramdisk-build"
+    else
+        # Try to create dedicated tmpfs mount for build
+        if [[ ! -d /tmp/ramdisk-build ]]; then
+            mkdir -p /tmp/ramdisk-build 2>/dev/null || true
+            if mount -t tmpfs -o size=25G tmpfs /tmp/ramdisk-build 2>/dev/null; then
+                BUILD_ROOT="/tmp/ramdisk-build"
+                echo -e "Created 25G tmpfs RAM disk for build"
+            else
+                BUILD_ROOT="/tmp/build"
+                echo -e "Could not create tmpfs, using disk: /tmp/build (slower)"
+            fi
+        else
+            BUILD_ROOT="/tmp/build"
+        fi
+    fi
+fi
 readonly BUILD_ROOT="${BUILD_ROOT:-/tmp/build}"
+readonly CHROOT_DIR="$BUILD_ROOT/chroot"
+readonly ISO_DIR="$BUILD_ROOT/iso"
 readonly MODULE_DIR="$REPO_ROOT/src/modules"
 readonly PYTHON_DIR="$REPO_ROOT/src/python"
 readonly CONFIG_DIR="$REPO_ROOT/src/config"
 readonly CHECKPOINT_DIR="$BUILD_ROOT/.checkpoints"
 readonly METRICS_DIR="$BUILD_ROOT/.metrics"
 readonly LOG_DIR="$BUILD_ROOT/.logs"
+readonly LOG_FILE="$BUILD_ROOT/build-$(date +%Y%m%d-%H%M%S).log"
 
 # Operational parameters
 readonly MAX_PARALLEL_JOBS="${MAX_PARALLEL_JOBS:-$(nproc)}"
@@ -220,7 +247,14 @@ execute_module() {
     local result=0
     local module_log="$LOG_DIR/module_${module_phase}.log"
     
-    if timeout "$BUILD_TIMEOUT" bash "$module_script" "$BUILD_ROOT" 2>&1 | tee "$module_log"; then
+    # Enable verbose logging
+    log_info "Executing with verbose output enabled"
+    log_debug "Module script: $module_script"
+    log_debug "Build root: $BUILD_ROOT"
+    log_debug "Log file: $module_log"
+    
+    # Execute with verbose flag and full output
+    if DEBUG=1 VERBOSE=1 timeout "$BUILD_TIMEOUT" bash -x "$module_script" "$BUILD_ROOT" 2>&1 | tee -a "$module_log"; then
         local module_end_time=$(date +%s)
         local duration=$((module_end_time - module_start_time))
         

@@ -26,8 +26,52 @@ log_info "Estimated time: 15-30 minutes"
 log_info "Disk space required: ~5-15GB"
 echo
 
-# Update package lists
-log_info "Updating package repositories..."
+# CRITICAL: Apply authoritative sources FIRST before any apt operations
+log_info "Applying authoritative repository configuration..."
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+CONFIG_DIR="$SCRIPT_DIR/src/config"
+
+# Backup existing sources
+if [[ -f /etc/apt/sources.list ]]; then
+    cp /etc/apt/sources.list /etc/apt/sources.list.backup.$(date +%Y%m%d-%H%M%S)
+    log_info "Backed up existing sources.list"
+fi
+
+# Disable Ubuntu 24.04 DEB822 format to prevent conflicts
+if [[ -f /etc/apt/sources.list.d/ubuntu.sources ]]; then
+    log_warn "Found Ubuntu DEB822 format sources, disabling to prevent duplicates"
+    mv /etc/apt/sources.list.d/ubuntu.sources /etc/apt/sources.list.d/ubuntu.sources.disabled 2>/dev/null || true
+fi
+
+# Disable all .sources files (DEB822 format) to prevent conflicts
+for sourcefile in /etc/apt/sources.list.d/*.sources; do
+    if [[ -f "$sourcefile" ]]; then
+        mv "$sourcefile" "${sourcefile}.disabled" 2>/dev/null || true
+        log_info "Disabled: $(basename "$sourcefile")"
+    fi
+done
+
+# Copy our authoritative sources.list
+if [[ -f "$CONFIG_DIR/sources.list" ]]; then
+    cp "$CONFIG_DIR/sources.list" /etc/apt/sources.list
+    log_success "Applied authoritative sources.list"
+else
+    log_warn "Authoritative sources.list not found at $CONFIG_DIR/sources.list"
+fi
+
+# Apply authoritative DNS configuration
+if [[ -f "$CONFIG_DIR/resolv.conf" ]]; then
+    cp /etc/resolv.conf /etc/resolv.conf.backup.$(date +%Y%m%d-%H%M%S) 2>/dev/null || true
+    cp "$CONFIG_DIR/resolv.conf" /etc/resolv.conf
+    log_success "Applied authoritative DNS configuration"
+fi
+
+# Remove any CDROM sources
+sed -i '/^deb cdrom:/d' /etc/apt/sources.list 2>/dev/null || true
+sed -i 's/^deb cdrom:/#deb cdrom:/g' /etc/apt/sources.list 2>/dev/null || true
+
+# Update package lists with new sources
+log_info "Updating package repositories with authoritative sources..."
 apt-get update || log_error "Failed to update package lists"
 
 # CATEGORY 1: BUILD ESSENTIALS & COMPILERS
