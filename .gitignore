@@ -1,1 +1,178 @@
+# === CRITICAL: Build artifacts - NEVER commit these ===
+# These files can quickly bloat git to gigabytes!
+
+# Build directories (USE TMPFS INSTEAD!)
+/tmp/build/
+/dev/shm/build/
+/tmp/ramdisk-build/
+build/
+chroot/
+iso/
+work/
+output/
+squashfs-root/
+extract-cd/
+edit/
+
+# ISO and large image files
 *.iso
+*.img
+*.squashfs
+*.vmdk
+*.vdi
+*.qcow2
+*.raw
+ubuntu.iso*
+output/*.iso
+
+# Temporary and cache files
+*.tmp
+*.temp
+*.cache
+.cache/
+tmp/
+temp/
+
+# Log files
+*.log
+logs/
+*.out
+*.err
+build-*.log
+/tmp/build-*.log
+
+# Package caches (can be hundreds of MB)
+*.deb
+*.rpm
+*.snap
+var/cache/apt/archives/
+.apt-cache/
+archives/
+
+# Kernel build artifacts
+*.o
+*.ko
+*.mod
+*.mod.c
+modules.order
+Module.symvers
+vmlinux
+System.map
+.tmp_versions/
+
+# ZFS build artifacts
+zfs-*/
+spl-*/
+*.tar.gz
+*.tar.bz2
+*.tar.xz
+*.zip
+
+# Python artifacts
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+env/
+venv/
+
+# IDE and editor files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+Thumbs.db
+
+# Backup files
+*.backup
+*.bak
+*.orig
+*.save
+*.old
+*~
+backup/
+
+# System files
+.directory
+.Trash-*
+.nfs*
+
+# Git large file storage temps
+.git/objects/pack/tmp_*
+.git/lfs/tmp/
+.git/lfs/objects/
+
+# Large binary files
+*.bin
+*.dat
+*.db
+*.sqlite
+*.sqlite3
+
+# Mounted directories
+mnt/
+mount/
+/mnt/persist/
+/mnt/iso/
+
+# Snap and flatpak
+snap/
+.snap/
+flatpak/
+.flatpak/
+
+# Security - never track these
+*.key
+*.pem
+*.crt
+*.p12
+*.pfx
+id_rsa*
+id_dsa*
+id_ecdsa*
+id_ed25519*
+*.gpg
+secrets/
+
+# Checkpoint and state files
+.checkpoints/
+.metrics/
+*.marker
+*.checkpoint
+.state/
+
+# Android SDK (large)
+android-sdk/
+android-sdk-linux/
+.android/
+platform-tools/
+
+# Java build artifacts
+*.class
+*.jar
+*.war
+*.ear
+target/
+
+# Node modules (huge)
+node_modules/
+bower_components/
+
+# Rust build
+target/
+Cargo.lock
+
+# Go build
+vendor/
+*.exe
+
+# Docker
+*.dockerignore
+docker-compose.override.yml
+
+# === IMPORTANT: Build artifacts should go to tmpfs ===
+# Set BUILD_ROOT=/dev/shm/build or /tmp/ramdisk-build
+# Never let large files enter git!
