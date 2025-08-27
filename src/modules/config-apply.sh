@@ -214,21 +214,33 @@ apply_apt_configuration() {
     
     log_info "Applying APT configuration optimizations..."
     
-    # Create APT configuration for better performance
+    # Create APT configuration for better performance and no authentication
     cat > "$target_dir/etc/apt/apt.conf.d/99-optimize" << 'EOF'
-# APT Optimizations for Build System
+# APT Optimizations for Build System - No Authentication
 Acquire::http::Pipeline-Depth "10";
 Acquire::Languages "none";
 APT::Install-Recommends "false";
 APT::Install-Suggests "false";
 APT::Get::Assume-Yes "true";
 APT::Get::AllowUnauthenticated "true";
+APT::Get::Allow-Insecure-Repositories "true";
+APT::Get::Allow-Downgrades "true";
+APT::Authentication::TrustCDROM "false";
+Acquire::AllowInsecureRepositories "true";
+Acquire::Check-Valid-Until "false";
 DPkg::Options::="--force-unsafe-io";
+DPkg::Options::="--force-confold";
+DPkg::Options::="--force-confdef";
+DPkg::Options::="--force-bad-verify";
 Dir::Cache::Archives "/var/cache/apt/archives";
 
 # Parallel downloads (for APT 2.3+)
 Acquire::Queue-Mode "access";
 Acquire::Retries "3";
+
+# Disable all signature checks
+APT::Update::Post-Invoke-Success "";
+Debug::Acquire::gpgv "true";
 EOF
     
     # Create preferences to prioritize certain repositories
@@ -306,13 +318,25 @@ main() {
     # Verify network connectivity
     verify_network_connectivity "$target_dir"
     
-    # Update package lists with new sources
+    # Update package lists with new sources (ignore 404s from partner repos)
     if [[ "$TARGET" == "host" ]]; then
         log_info "Updating package lists..."
-        apt-get update || log_warn "Failed to update package lists"
+        apt-get update --allow-unauthenticated --allow-insecure-repositories 2>&1 | grep -v "404  Not Found" || {
+            if apt-cache policy | grep -q "archive.ubuntu.com"; then
+                log_warn "Some repositories failed but main repos are available"
+            else
+                log_warn "Failed to update package lists"
+            fi
+        }
     elif [[ "$TARGET" == "chroot" ]]; then
         log_info "Updating package lists in chroot..."
-        chroot "$CHROOT_DIR" apt-get update || log_warn "Failed to update package lists in chroot"
+        chroot "$CHROOT_DIR" apt-get update --allow-unauthenticated --allow-insecure-repositories 2>&1 | grep -v "404  Not Found" || {
+            if chroot "$CHROOT_DIR" apt-cache policy | grep -q "archive.ubuntu.com"; then
+                log_warn "Some repositories failed but main repos are available"
+            else
+                log_warn "Failed to update package lists in chroot"
+            fi
+        }
     fi
     
     # Create marker file

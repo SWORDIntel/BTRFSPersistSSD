@@ -18,25 +18,25 @@ IFS=$'\n\t'
 #=============================================================================
 
 # Script metadata
-readonly SCRIPT_NAME="build-orchestrator"
-readonly SCRIPT_VERSION="3.2.0"
-readonly SCRIPT_STATUS="PRODUCTION-READY"
-readonly CLASSIFICATION="OPERATIONAL"
+SCRIPT_NAME="build-orchestrator"
+SCRIPT_VERSION="3.2.0"
+SCRIPT_STATUS="PRODUCTION-READY"
+CLASSIFICATION="OPERATIONAL"
 
 # Establish command structure
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-readonly REPO_ROOT="$SCRIPT_DIR"
+REPO_ROOT="$SCRIPT_DIR"
 
 # Color coding for tactical display
 if [[ -t 1 ]] && command -v tput >/dev/null 2>&1 && [[ $(tput colors 2>/dev/null) -ge 8 ]]; then
-    readonly RED='\033[0;31m'
-    readonly GREEN='\033[0;32m'
-    readonly YELLOW='\033[1;33m'
-    readonly BLUE='\033[0;34m'
-    readonly CYAN='\033[0;36m'
-    readonly RESET='\033[0m'
+    RED='\033[0;31m'
+    GREEN='\033[0;32m'
+    YELLOW='\033[1;33m'
+    BLUE='\033[0;34m'
+    CYAN='\033[0;36m'
+    RESET='\033[0m'
 else
-    readonly RED='' GREEN='' YELLOW='' BLUE='' CYAN='' RESET=''
+    RED='' GREEN='' YELLOW='' BLUE='' CYAN='' RESET=''
 fi
 
 #=============================================================================
@@ -110,21 +110,21 @@ if [[ -z "${BUILD_ROOT:-}" ]]; then
         fi
     fi
 fi
-readonly BUILD_ROOT="${BUILD_ROOT:-/tmp/build}"
-readonly CHROOT_DIR="$BUILD_ROOT/chroot"
-readonly ISO_DIR="$BUILD_ROOT/iso"
-readonly MODULE_DIR="$REPO_ROOT/src/modules"
-readonly PYTHON_DIR="$REPO_ROOT/src/python"
-readonly CONFIG_DIR="$REPO_ROOT/src/config"
-readonly CHECKPOINT_DIR="$BUILD_ROOT/.checkpoints"
-readonly METRICS_DIR="$BUILD_ROOT/.metrics"
-readonly LOG_DIR="$BUILD_ROOT/.logs"
-readonly LOG_FILE="$BUILD_ROOT/build-$(date +%Y%m%d-%H%M%S).log"
+BUILD_ROOT="${BUILD_ROOT:-/tmp/build}"
+CHROOT_DIR="$BUILD_ROOT/chroot"
+ISO_DIR="$BUILD_ROOT/iso"
+MODULE_DIR="$REPO_ROOT/src/modules"
+PYTHON_DIR="$REPO_ROOT/src/python"
+CONFIG_DIR="$REPO_ROOT/src/config"
+CHECKPOINT_DIR="$BUILD_ROOT/.checkpoints"
+METRICS_DIR="$BUILD_ROOT/.metrics"
+LOG_DIR="$BUILD_ROOT/.logs"
+LOG_FILE="$BUILD_ROOT/build-$(date +%Y%m%d-%H%M%S).log"
 
 # Operational parameters
-readonly MAX_PARALLEL_JOBS="${MAX_PARALLEL_JOBS:-$(nproc)}"
-readonly BUILD_TIMEOUT="${BUILD_TIMEOUT:-7200}"  # 2 hours default
-readonly CHECKPOINT_INTERVAL="${CHECKPOINT_INTERVAL:-300}"  # 5 minutes
+MAX_PARALLEL_JOBS="${MAX_PARALLEL_JOBS:-$(nproc)}"
+BUILD_TIMEOUT="${BUILD_TIMEOUT:-7200}"  # 2 hours default
+CHECKPOINT_INTERVAL="${CHECKPOINT_INTERVAL:-300}"  # 5 minutes
 
 # Module execution order - TACTICAL SEQUENCE
 declare -A MODULE_EXECUTION_ORDER=(
