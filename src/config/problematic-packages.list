@@ -1,0 +1,50 @@
+# Problematic packages that should be skipped or handled specially
+# These packages are known to cause issues during automated installation
+
+# PHP-FPM - causes timeout during service startup
+php-fpm
+php8.3-fpm
+php8.2-fpm
+php8.1-fpm
+php7.4-fpm
+
+# MySQL/MariaDB - requires interactive configuration
+mysql-server
+mariadb-server
+
+# PostgreSQL server - may require manual setup
+postgresql-13
+postgresql-14
+postgresql-15
+
+# Mail servers - require configuration
+postfix
+exim4
+sendmail
+
+# Display managers - can interfere with headless builds
+gdm3
+lightdm
+sddm
+
+# Snap packages that hang in chroot
+snapd
+snap-store
+
+# Interactive packages
+wireshark-common
+jackd2
+ttf-mscorefonts-installer
+
+# Services that may fail in chroot
+redis-server
+memcached
+elasticsearch
+
+# Large language models/data
+tesseract-ocr-all
+texlive-full
+
+# Packages with broken dependencies
+wine32
+wine64

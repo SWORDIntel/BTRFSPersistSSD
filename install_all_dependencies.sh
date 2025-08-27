@@ -357,6 +357,17 @@ ADDITIONAL_TOOLS=(
 )
 
 # Function to install package group
+# Check if package is problematic
+is_problematic_package() {
+    local pkg="$1"
+    local problematic_list="$SCRIPT_DIR/src/config/problematic-packages.list"
+    
+    if [[ -f "$problematic_list" ]]; then
+        grep -qx "$pkg" "$problematic_list" 2>/dev/null && return 0
+    fi
+    return 1
+}
+
 install_package_group() {
     local group_name="$1"
     shift
@@ -368,23 +379,48 @@ install_package_group() {
     local batch_size=20
     local total=${#packages[@]}
     
+    # Filter out problematic packages
+    local filtered_packages=()
+    local skipped_packages=()
+    
+    for pkg in "${packages[@]}"; do
+        if is_problematic_package "$pkg"; then
+            skipped_packages+=("$pkg")
+            log_warn "Skipping problematic package: $pkg"
+        else
+            filtered_packages+=("$pkg")
+        fi
+    done
+    
+    if [[ ${#skipped_packages[@]} -gt 0 ]]; then
+        log_warn "Skipped ${#skipped_packages[@]} problematic packages"
+    fi
+    
+    packages=("${filtered_packages[@]}")
+    total=${#packages[@]}
+    
     for ((i=0; i<total; i+=batch_size)); do
         local batch=("${packages[@]:i:batch_size}")
         local progress=$((i * 100 / total))
         
         echo -ne "\rProgress: ${progress}% "
         
-        DEBIAN_FRONTEND=noninteractive apt-get install -y \
+        # Set timeout to prevent hanging packages
+        timeout 120 bash -c "DEBIAN_FRONTEND=noninteractive apt-get install -y \
             --no-install-recommends \
             --allow-unauthenticated \
-            "${batch[@]}" 2>/dev/null || {
+            -o DPkg::Options::='--force-confold' \
+            -o DPkg::Options::='--force-confdef' \
+            ${batch[*]}" 2>/dev/null || {
                 # Try individual installation on batch failure
                 for pkg in "${batch[@]}"; do
-                    DEBIAN_FRONTEND=noninteractive apt-get install -y \
+                    timeout 60 bash -c "DEBIAN_FRONTEND=noninteractive apt-get install -y \
                         --no-install-recommends \
                         --allow-unauthenticated \
-                        "$pkg" 2>/dev/null || \
-                        log_warn "Failed: $pkg"
+                        -o DPkg::Options::='--force-confold' \
+                        -o DPkg::Options::='--force-confdef' \
+                        $pkg" 2>/dev/null || \
+                        log_warn "Failed or timeout: $pkg"
                 done
             }
     done
@@ -590,7 +626,8 @@ LANGUAGES=(
     golang-go golang-doc golang-golang-x-tools
     rustc cargo rust-doc rust-src rustfmt rust-clippy
     ruby ruby-dev ruby-bundler
-    php php-cli php-fpm php-mysql php-curl php-gd
+    php php-cli php-mysql php-curl php-gd
+    # php-fpm excluded - causes timeout on some systems
     openjdk-17-jdk openjdk-17-jre maven gradle ant
     dotnet-sdk-7.0 dotnet-runtime-7.0 mono-complete
     erlang elixir
