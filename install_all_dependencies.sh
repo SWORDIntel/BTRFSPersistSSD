@@ -5,11 +5,11 @@
 set -euo pipefail
 
 # Colors
-readonly RED='\033[0;31m'
-readonly GREEN='\033[0;32m'
-readonly YELLOW='\033[1;33m'
-readonly BLUE='\033[0;34m'
-readonly NC='\033[0m'
+RED='\033[0;31m'
+GREEN='\033[0;32m'
+YELLOW='\033[1;33m'
+BLUE='\033[0;34m'
+NC='\033[0m'
 
 log_info() { echo -e "${BLUE}[INFO]${NC} $*"; }
 log_success() { echo -e "${GREEN}[SUCCESS]${NC} $*"; }
@@ -19,26 +19,8 @@ log_warn() { echo -e "${YELLOW}[WARNING]${NC} $*"; }
 # Check root
 [[ $EUID -ne 0 ]] && log_error "Must run as root"
 
-# Calculate total packages
-calculate_totals() {
-    local total=0
-    for category in BUILD_ESSENTIALS KERNEL_PACKAGES ZFS_PACKAGES \
-                   CONTAINER_PACKAGES FILESYSTEM_PACKAGES ISO_PACKAGES \
-                   COMPRESSION_PACKAGES NETWORK_PACKAGES DEV_LIBRARIES \
-                   PYTHON_PACKAGES MONITORING_PACKAGES SECURITY_PACKAGES \
-                   RECOVERY_PACKAGES TEXT_PACKAGES FIRMWARE_PACKAGES \
-                   INTEL_GRAPHICS DATABASE_PACKAGES ADVANCED_DEV \
-                   LIVEBOOT_PACKAGES HARDWARE_TOOLS \
-                   MULTIMEDIA_PACKAGES DESKTOP_PACKAGES \
-                   PROXMOX_PACKAGES DELL_PACKAGES ADDITIONAL_TOOLS \
-                   LANGUAGES CLOUD_TOOLS; do
-        eval "total+=\${#${category}[@]}"
-    done
-    echo $total
-}
-
 log_info "=== COMPREHENSIVE DEPENDENCY INSTALLATION ==="
-log_info "Total packages available: $(calculate_totals)+"
+log_info "Total packages available: 500+"
 log_info "Categories: 27 (20 mandatory, 7 optional)"
 log_info "Estimated time: 15-30 minutes"
 log_info "Disk space required: ~5-15GB"
@@ -49,7 +31,7 @@ log_info "Updating package repositories..."
 apt-get update || log_error "Failed to update package lists"
 
 # CATEGORY 1: BUILD ESSENTIALS & COMPILERS
-readonly BUILD_ESSENTIALS=(
+BUILD_ESSENTIALS=(
     build-essential gcc g++ make cmake automake autoconf libtool
     gcc-12 gcc-13 g++-12 g++-13 clang llvm
     bison flex bc rsync cpio kmod dkms module-assistant
@@ -63,7 +45,7 @@ readonly BUILD_ESSENTIALS=(
 )
 
 # CATEGORY 2: KERNEL & HEADERS
-readonly KERNEL_PACKAGES=(
+KERNEL_PACKAGES=(
     linux-headers-generic linux-headers-$(uname -r)
     linux-source linux-tools-common linux-tools-generic
     linux-cloud-tools-generic linux-image-generic
@@ -75,7 +57,7 @@ readonly KERNEL_PACKAGES=(
 
 # CATEGORY 3: ZFS PACKAGES & DEPENDENCIES
 # Note: These are build dependencies for ZFS 2.3.4 compilation
-readonly ZFS_PACKAGES=(
+ZFS_PACKAGES=(
     # ZFS build dependencies for compiling 2.3.4 from source
     libblkid-dev uuid-dev libudev-dev libssl-dev
     zlib1g-dev libaio-dev libattr1-dev libelf-dev
@@ -91,14 +73,14 @@ readonly ZFS_PACKAGES=(
     linux-headers-generic linux-headers-$(uname -r)
     linux-source dkms
     # Optional ZFS packages (may not exist yet)
-    zfsutils-linux zfs-dkms zfs-initramfs zfs-zed 2>/dev/null || true
-    zpool-features zfs-dracut 2>/dev/null || true
-    libnvpair3linux libuutil3linux libzfs4linux libzpool5linux 2>/dev/null || true
+    zfsutils-linux zfs-dkms zfs-initramfs zfs-zed
+    zpool-features zfs-dracut
+    libnvpair3linux libuutil3linux libzfs4linux libzpool5linux
     dracut-core dracut-network
 )
 
 # CATEGORY 4: SYSTEM CONTAINER & VIRTUALIZATION
-readonly CONTAINER_PACKAGES=(
+CONTAINER_PACKAGES=(
     systemd-container debootstrap schroot
     lxc lxc-templates lxd lxd-client
     docker.io docker-compose podman buildah
@@ -109,7 +91,7 @@ readonly CONTAINER_PACKAGES=(
 )
 
 # CATEGORY 5: FILESYSTEM TOOLS
-readonly FILESYSTEM_PACKAGES=(
+FILESYSTEM_PACKAGES=(
     e2fsprogs xfsprogs btrfs-progs dosfstools
     ntfs-3g f2fs-tools nilfs-tools reiserfsprogs jfsutils
     lvm2 mdadm cryptsetup cryptsetup-initramfs
@@ -121,7 +103,7 @@ readonly FILESYSTEM_PACKAGES=(
 )
 
 # CATEGORY 6: ISO & BOOT TOOLS
-readonly ISO_PACKAGES=(
+ISO_PACKAGES=(
     xorriso isolinux syslinux syslinux-common syslinux-efi
     grub-pc-bin grub-efi-amd64-bin grub2-common
     grub-efi-amd64 grub-efi-amd64-signed
@@ -135,7 +117,7 @@ readonly ISO_PACKAGES=(
 )
 
 # CATEGORY 7: COMPRESSION & ARCHIVE
-readonly COMPRESSION_PACKAGES=(
+COMPRESSION_PACKAGES=(
     gzip bzip2 xz-utils lz4 zstd lzip lzop
     p7zip-full p7zip-rar unrar unrar-free
     zip unzip pigz pbzip2 pixz pxz
@@ -144,7 +126,7 @@ readonly COMPRESSION_PACKAGES=(
 )
 
 # CATEGORY 8: NETWORK TOOLS
-readonly NETWORK_PACKAGES=(
+NETWORK_PACKAGES=(
     net-tools iproute2 iputils-ping traceroute
     netcat-openbsd socat nmap tcpdump tshark
     wget curl aria2 axel lftp rsync
@@ -160,7 +142,7 @@ readonly NETWORK_PACKAGES=(
 )
 
 # CATEGORY 9: DEVELOPMENT LIBRARIES
-readonly DEV_LIBRARIES=(
+DEV_LIBRARIES=(
     libssl-dev libcrypto++-dev libgcrypt20-dev
     libsqlite3-dev libmysqlclient-dev libpq-dev
     libxml2-dev libxslt1-dev libyaml-dev libjson-c-dev
@@ -172,7 +154,7 @@ readonly DEV_LIBRARIES=(
 )
 
 # CATEGORY 10: PYTHON ECOSYSTEM
-readonly PYTHON_PACKAGES=(
+PYTHON_PACKAGES=(
     python3-full python3-pip python3-venv python3-dev
     python3-setuptools python3-wheel python3-pytest
     python3-numpy python3-scipy python3-matplotlib
@@ -188,7 +170,7 @@ readonly PYTHON_PACKAGES=(
 )
 
 # CATEGORY 11: MONITORING & PERFORMANCE
-readonly MONITORING_PACKAGES=(
+MONITORING_PACKAGES=(
     htop atop iotop iftop nethogs sysstat
     glances nmon dstat vmstat iostat mpstat
     powertop laptop-mode-tools thermald
@@ -198,7 +180,7 @@ readonly MONITORING_PACKAGES=(
 )
 
 # CATEGORY 12: SECURITY TOOLS  
-readonly SECURITY_PACKAGES=(
+SECURITY_PACKAGES=(
     aide tripwire chkrootkit rkhunter lynis
     clamav clamav-daemon clamav-freshclam
     fail2ban denyhosts sshguard
@@ -209,7 +191,7 @@ readonly SECURITY_PACKAGES=(
 )
 
 # CATEGORY 13: RECOVERY & RESCUE
-readonly RECOVERY_PACKAGES=(
+RECOVERY_PACKAGES=(
     testdisk photorec gddrescue ddrescue safecopy
     foremost scalpel extundelete ext4magic
     sleuthkit autopsy binwalk volatility
@@ -219,7 +201,7 @@ readonly RECOVERY_PACKAGES=(
 )
 
 # CATEGORY 14: TEXT & DOCUMENTATION
-readonly TEXT_PACKAGES=(
+TEXT_PACKAGES=(
     vim neovim emacs nano micro
     pandoc asciidoc asciidoctor markdown
     texlive-full latex2html rubber
@@ -229,13 +211,13 @@ readonly TEXT_PACKAGES=(
 )
 
 # CATEGORY 15: MULTIMEDIA CODECS (Optional)
-readonly MULTIMEDIA_PACKAGES=(
+MULTIMEDIA_PACKAGES=(
     ffmpeg libavcodec-extra gstreamer1.0-plugins-bad
     ubuntu-restricted-extras ubuntu-restricted-addons
 )
 
 # CATEGORY 16: FIRMWARE & HARDWARE DRIVERS
-readonly FIRMWARE_PACKAGES=(
+FIRMWARE_PACKAGES=(
     linux-firmware firmware-linux firmware-linux-free 
     firmware-linux-nonfree firmware-misc-nonfree
     firmware-iwlwifi firmware-atheros firmware-realtek
@@ -245,7 +227,7 @@ readonly FIRMWARE_PACKAGES=(
 )
 
 # CATEGORY 17: INTEL GRAPHICS & NPU
-readonly INTEL_GRAPHICS=(
+INTEL_GRAPHICS=(
     intel-media-va-driver-non-free intel-gpu-tools
     i965-va-driver i965-va-driver-shaders libigdgmm12
     xserver-xorg-video-intel libgl1-mesa-dri
@@ -259,7 +241,7 @@ readonly INTEL_GRAPHICS=(
 )
 
 # CATEGORY 18: DATABASE SYSTEMS
-readonly DATABASE_PACKAGES=(
+DATABASE_PACKAGES=(
     postgresql postgresql-client postgresql-contrib
     postgresql-16 postgresql-client-16 postgresql-contrib-16
     mysql-server mysql-client mariadb-server mariadb-client
@@ -268,7 +250,7 @@ readonly DATABASE_PACKAGES=(
 )
 
 # CATEGORY 19: DESKTOP ENVIRONMENT
-readonly DESKTOP_PACKAGES=(
+DESKTOP_PACKAGES=(
     kde-plasma-desktop konsole dolphin kate okular
     firefox firefox-esr chromium-browser
     libreoffice thunderbird vlc gimp inkscape
@@ -276,7 +258,7 @@ readonly DESKTOP_PACKAGES=(
 )
 
 # CATEGORY 20: ADVANCED DEVELOPMENT
-readonly ADVANCED_DEV=(
+ADVANCED_DEV=(
     linux-libc-dev libc6-dev libgtk-3-dev
     libwebkit2gtk-4.0-dev libgmp-dev libreadline-dev
     libgdbm-dev libdb-dev device-tree-compiler
@@ -286,7 +268,7 @@ readonly ADVANCED_DEV=(
 )
 
 # CATEGORY 21: PROXMOX SPECIFIC
-readonly PROXMOX_PACKAGES=(
+PROXMOX_PACKAGES=(
     libpve-common-perl libpve-guest-common-perl
     libpve-storage-perl pve-edk2-firmware
     pve-kernel-helper proxmox-archive-keyring
@@ -294,13 +276,13 @@ readonly PROXMOX_PACKAGES=(
 )
 
 # CATEGORY 22: DELL HARDWARE SUPPORT  
-readonly DELL_PACKAGES=(
+DELL_PACKAGES=(
     libsmbios2 smbios-utils dell-recovery
     oem-config oem-config-gtk
 )
 
 # CATEGORY 23: LIVE BOOT & CASPER
-readonly LIVEBOOT_PACKAGES=(
+LIVEBOOT_PACKAGES=(
     casper lupin-casper ubiquity ubiquity-casper
     live-boot live-boot-initramfs-tools
     live-config live-config-systemd
@@ -308,7 +290,7 @@ readonly LIVEBOOT_PACKAGES=(
 )
 
 # CATEGORY 24: ADDITIONAL TOOLS
-readonly ADDITIONAL_TOOLS=(
+ADDITIONAL_TOOLS=(
     gh ripgrep fd-find bat exa fzf
     neofetch screenfetch inxi
     ranger mc vifm tmux screen byobu
@@ -358,6 +340,11 @@ install_package_group() {
 
 # Main installation
 main() {
+    # Remove CDROM source if present (causes issues with universe/multiverse)
+    log_info "Removing CDROM sources..."
+    sed -i '/^deb cdrom:/d' /etc/apt/sources.list
+    sed -i '/^deb-src cdrom:/d' /etc/apt/sources.list
+    
     # Configure APT for speed
     cat > /etc/apt/apt.conf.d/99-speed << 'EOF'
 Acquire::http::Pipeline-Depth "10";
@@ -371,8 +358,10 @@ EOF
     add-apt-repository universe -y
     add-apt-repository multiverse -y
     
-    # Add contrib and non-free for firmware
-    sed -i 's/main$/main contrib non-free non-free-firmware/g' /etc/apt/sources.list
+    # Add contrib and non-free for firmware (for Debian compatibility)
+    if grep -q "debian" /etc/os-release; then
+        sed -i 's/main$/main contrib non-free non-free-firmware/g' /etc/apt/sources.list
+    fi
     
     apt-get update
     
@@ -486,7 +475,7 @@ EOF
 }
 
 # CATEGORY 25: PROGRAMMING LANGUAGES
-readonly LANGUAGES=(
+LANGUAGES=(
     nodejs npm yarn
     golang-go golang-doc golang-golang-x-tools
     rustc cargo rust-doc rust-src rustfmt rust-clippy
@@ -504,7 +493,7 @@ readonly LANGUAGES=(
 )
 
 # CATEGORY 26: CLOUD & ORCHESTRATION
-readonly CLOUD_TOOLS=(
+CLOUD_TOOLS=(
     kubectl kubeadm kubelet kubernetes-client
     helm helmfile kustomize
     terraform terraform-docs terragrunt
@@ -520,7 +509,7 @@ readonly CLOUD_TOOLS=(
 )
 
 # CATEGORY 27: HARDWARE DIAGNOSTICS
-readonly HARDWARE_TOOLS=(
+HARDWARE_TOOLS=(
     dmidecode lshw hwinfo inxi hardinfo
     i2c-tools lm-sensors fancontrol
     pciutils usbutils usb-modeswitch
