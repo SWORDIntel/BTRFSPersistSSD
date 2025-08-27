@@ -18,10 +18,10 @@ REPO_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
     }
 
 # Module configuration
-readonly MODULE_NAME="zfs-builder"
-readonly MODULE_VERSION="1.0.0"
-readonly BUILD_ROOT="${1:-/tmp/build}"
-readonly CHROOT_DIR="$BUILD_ROOT/chroot"
+MODULE_NAME="zfs-builder"
+MODULE_VERSION="1.0.0"
+BUILD_ROOT="${1:-/tmp/build}"
+CHROOT_DIR="$BUILD_ROOT/chroot"
 
 # ZFS specific configuration
 readonly ZFS_VERSION="2.3.4"

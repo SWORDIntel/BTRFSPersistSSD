@@ -18,10 +18,10 @@ REPO_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
     }
 
 # Module configuration
-readonly MODULE_NAME="kernel-compilation"
-readonly MODULE_VERSION="1.0.0"
-readonly BUILD_ROOT="${1:-/tmp/build}"
-readonly CHROOT_DIR="$BUILD_ROOT/chroot"
+MODULE_NAME="kernel-compilation"
+MODULE_VERSION="1.0.0"
+BUILD_ROOT="${1:-/tmp/build}"
+CHROOT_DIR="$BUILD_ROOT/chroot"
 readonly BUILD_KERNEL="${BUILD_KERNEL:-false}"
 readonly KERNEL_VERSION="${KERNEL_VERSION:-6.8.0}"
 

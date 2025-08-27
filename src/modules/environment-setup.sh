@@ -18,10 +18,10 @@ REPO_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
     }
 
 # Module configuration
-readonly MODULE_NAME="environment-setup"
-readonly MODULE_VERSION="1.0.0"
-readonly BUILD_ROOT="${1:-/tmp/build}"
-readonly CHROOT_DIR="$BUILD_ROOT/chroot"
+MODULE_NAME="environment-setup"
+MODULE_VERSION="1.0.0"
+BUILD_ROOT="${1:-/tmp/build}"
+CHROOT_DIR="$BUILD_ROOT/chroot"
 readonly WORK_DIR="$BUILD_ROOT/work"
 
 # Environment settings

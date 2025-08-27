@@ -23,9 +23,9 @@ REPO_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
     }
 
 # Module configuration
-readonly MODULE_NAME="dependency-validation"
-readonly MODULE_VERSION="1.0.0"
-readonly BUILD_ROOT="${1:-/tmp/build}"
+MODULE_NAME="dependency-validation"
+MODULE_VERSION="1.0.0"
+BUILD_ROOT="${1:-/tmp/build}"
 
 # Dependency requirements
 readonly MIN_DISK_SPACE_GB=20
@@ -208,10 +208,10 @@ REPO_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
     }
 
 # Module configuration
-readonly MODULE_NAME="environment-setup"
-readonly MODULE_VERSION="1.0.0"
-readonly BUILD_ROOT="${1:-/tmp/build}"
-readonly CHROOT_DIR="$BUILD_ROOT/chroot"
+MODULE_NAME="environment-setup"
+MODULE_VERSION="1.0.0"
+BUILD_ROOT="${1:-/tmp/build}"
+CHROOT_DIR="$BUILD_ROOT/chroot"
 readonly WORK_DIR="$BUILD_ROOT/work"
 
 # Environment settings
@@ -378,10 +378,10 @@ REPO_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
     }
 
 # Module configuration
-readonly MODULE_NAME="base-system"
-readonly MODULE_VERSION="1.0.0"
-readonly BUILD_ROOT="${1:-/tmp/build}"
-readonly CHROOT_DIR="$BUILD_ROOT/chroot"
+MODULE_NAME="base-system"
+MODULE_VERSION="1.0.0"
+BUILD_ROOT="${1:-/tmp/build}"
+CHROOT_DIR="$BUILD_ROOT/chroot"
 
 # Base packages
 readonly BASE_PACKAGES=(
@@ -570,10 +570,10 @@ REPO_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
     }
 
 # Module configuration
-readonly MODULE_NAME="kernel-compilation"
-readonly MODULE_VERSION="1.0.0"
-readonly BUILD_ROOT="${1:-/tmp/build}"
-readonly CHROOT_DIR="$BUILD_ROOT/chroot"
+MODULE_NAME="kernel-compilation"
+MODULE_VERSION="1.0.0"
+BUILD_ROOT="${1:-/tmp/build}"
+CHROOT_DIR="$BUILD_ROOT/chroot"
 readonly BUILD_KERNEL="${BUILD_KERNEL:-false}"
 readonly KERNEL_VERSION="${KERNEL_VERSION:-6.8.0}"
 
@@ -778,10 +778,10 @@ REPO_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
     }
 
 # Module configuration
-readonly MODULE_NAME="package-installation"
-readonly MODULE_VERSION="1.0.0"
-readonly BUILD_ROOT="${1:-/tmp/build}"
-readonly CHROOT_DIR="$BUILD_ROOT/chroot"
+MODULE_NAME="package-installation"
+MODULE_VERSION="1.0.0"
+BUILD_ROOT="${1:-/tmp/build}"
+CHROOT_DIR="$BUILD_ROOT/chroot"
 
 #=============================================================================
 # PACKAGE LISTS
@@ -962,10 +962,10 @@ REPO_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
     }
 
 # Module configuration
-readonly MODULE_NAME="system-configuration"
-readonly MODULE_VERSION="1.0.0"
-readonly BUILD_ROOT="${1:-/tmp/build}"
-readonly CHROOT_DIR="$BUILD_ROOT/chroot"
+MODULE_NAME="system-configuration"
+MODULE_VERSION="1.0.0"
+BUILD_ROOT="${1:-/tmp/build}"
+CHROOT_DIR="$BUILD_ROOT/chroot"
 
 #=============================================================================
 # CONFIGURATION FUNCTIONS
@@ -1164,10 +1164,10 @@ REPO_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
     }
 
 # Module configuration
-readonly MODULE_NAME="initramfs-generation"
-readonly MODULE_VERSION="1.0.0"
-readonly BUILD_ROOT="${1:-/tmp/build}"
-readonly CHROOT_DIR="$BUILD_ROOT/chroot"
+MODULE_NAME="initramfs-generation"
+MODULE_VERSION="1.0.0"
+BUILD_ROOT="${1:-/tmp/build}"
+CHROOT_DIR="$BUILD_ROOT/chroot"
 readonly WORK_DIR="$BUILD_ROOT/work"
 
 #=============================================================================
@@ -1360,10 +1360,10 @@ REPO_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
     }
 
 # Module configuration
-readonly MODULE_NAME="iso-assembly"
-readonly MODULE_VERSION="1.0.0"
-readonly BUILD_ROOT="${1:-/tmp/build}"
-readonly CHROOT_DIR="$BUILD_ROOT/chroot"
+MODULE_NAME="iso-assembly"
+MODULE_VERSION="1.0.0"
+BUILD_ROOT="${1:-/tmp/build}"
+CHROOT_DIR="$BUILD_ROOT/chroot"
 readonly WORK_DIR="$BUILD_ROOT/work"
 readonly ISO_DIR="$WORK_DIR/iso"
 readonly OUTPUT_DIR="$BUILD_ROOT/output"
@@ -1562,9 +1562,9 @@ REPO_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
     }
 
 # Module configuration
-readonly MODULE_NAME="validation"
-readonly MODULE_VERSION="1.0.0"
-readonly BUILD_ROOT="${1:-/tmp/build}"
+MODULE_NAME="validation"
+MODULE_VERSION="1.0.0"
+BUILD_ROOT="${1:-/tmp/build}"
 readonly OUTPUT_DIR="$BUILD_ROOT/output"
 
 #=============================================================================
@@ -1750,9 +1750,9 @@ REPO_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
     }
 
 # Module configuration
-readonly MODULE_NAME="finalization"
-readonly MODULE_VERSION="1.0.0"
-readonly BUILD_ROOT="${1:-/tmp/build}"
+MODULE_NAME="finalization"
+MODULE_VERSION="1.0.0"
+BUILD_ROOT="${1:-/tmp/build}"
 readonly OUTPUT_DIR="$BUILD_ROOT/output"
 
 #=============================================================================

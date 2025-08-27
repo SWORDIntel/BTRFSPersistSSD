@@ -225,8 +225,9 @@ execute_build() {
     if [[ -f "$SCRIPT_DIR/build-orchestrator.sh" ]]; then
         log_info "Starting build orchestrator..."
         log_info "This will create a custom ISO with all packages from package-installation.sh"
+        log_info "Running with verbose logging for debugging"
         
-        if bash "$SCRIPT_DIR/build-orchestrator.sh" build "$build_type"; then
+        if DEBUG=1 VERBOSE=1 bash -x "$SCRIPT_DIR/build-orchestrator.sh" build "$build_type" 2>&1 | tee "/tmp/build-$(date +%Y%m%d-%H%M%S).log"; then
             log_success "Build completed successfully"
             
             # Check for generated ISO

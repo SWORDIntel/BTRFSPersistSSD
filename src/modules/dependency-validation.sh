@@ -18,9 +18,9 @@ REPO_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
     }
 
 # Module configuration
-readonly MODULE_NAME="dependency-validation"
-readonly MODULE_VERSION="1.0.0"
-readonly BUILD_ROOT="${1:-/tmp/build}"
+MODULE_NAME="dependency-validation"
+MODULE_VERSION="1.0.0"
+BUILD_ROOT="${1:-/tmp/build}"
 
 # Dependency requirements
 readonly MIN_DISK_SPACE_GB=20
