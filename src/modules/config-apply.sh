@@ -43,6 +43,15 @@ apply_sources_list() {
         log_info "Backed up existing sources.list"
     fi
     
+    # CRITICAL: Handle Ubuntu 24.04+ DEB822 format
+    # Ubuntu 24.04 uses /etc/apt/sources.list.d/ubuntu.sources which conflicts
+    if [[ -f "$target_dir/etc/apt/sources.list.d/ubuntu.sources" ]]; then
+        log_warn "Found Ubuntu DEB822 format sources file, disabling it"
+        mv "$target_dir/etc/apt/sources.list.d/ubuntu.sources" \
+           "$target_dir/etc/apt/sources.list.d/ubuntu.sources.disabled" 2>/dev/null || true
+        log_info "Disabled ubuntu.sources to prevent conflicts"
+    fi
+    
     # Determine which sources.list to use
     local sources_file="$CONFIG_DIR/sources.list"
     
@@ -65,8 +74,24 @@ apply_sources_list() {
         tar -czf "$target_dir/etc/apt/sources.list.d.backup.$(date +%Y%m%d).tar.gz" \
             -C "$target_dir/etc/apt" sources.list.d 2>/dev/null || true
         
-        # Remove cdrom sources
+        # Remove/disable conflicting sources
         rm -f "$target_dir/etc/apt/sources.list.d/"*cdrom*.list 2>/dev/null || true
+        
+        # Disable all .sources files (DEB822 format) to prevent conflicts
+        for sourcefile in "$target_dir/etc/apt/sources.list.d/"*.sources; do
+            if [[ -f "$sourcefile" ]]; then
+                mv "$sourcefile" "${sourcefile}.disabled" 2>/dev/null || true
+                log_info "Disabled: $(basename "$sourcefile")"
+            fi
+        done
+        
+        # Clear any duplicate PPAs
+        for listfile in "$target_dir/etc/apt/sources.list.d/"*.list; do
+            if [[ -f "$listfile" ]] && grep -q "^deb.*archive.ubuntu.com.*noble main" "$listfile" 2>/dev/null; then
+                mv "$listfile" "${listfile}.disabled" 2>/dev/null || true
+                log_info "Disabled duplicate: $(basename "$listfile")"
+            fi
+        done
         
         log_info "Cleaned sources.list.d directory"
     fi
