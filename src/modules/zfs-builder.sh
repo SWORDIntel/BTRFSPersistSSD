@@ -84,6 +84,25 @@ install_build_dependencies() {
 # Update package lists
 apt-get update
 
+# CRITICAL: Remove any existing ZFS packages first
+echo "Removing any existing ZFS installations..."
+apt-get remove -y --purge zfsutils-linux zfs-dkms zfs-initramfs zfs-zed \
+    libzfs4linux libzpool5linux libnvpair3linux libuutil3linux \
+    zfs-dracut zpool-features 2>/dev/null || true
+apt-get autoremove -y 2>/dev/null || true
+
+# Remove ZFS kernel modules if present
+rmmod zfs 2>/dev/null || true
+rmmod spl 2>/dev/null || true
+
+# Clean any ZFS remnants from modules directories
+rm -rf /lib/modules/*/extra/zfs* 2>/dev/null || true
+rm -rf /lib/modules/*/extra/spl* 2>/dev/null || true
+rm -rf /usr/src/zfs* 2>/dev/null || true
+rm -rf /usr/src/spl* 2>/dev/null || true
+
+echo "Cleaned existing ZFS installations"
+
 # Install ZFS build dependencies
 DEBIAN_FRONTEND=noninteractive apt-get install -y \
     build-essential \

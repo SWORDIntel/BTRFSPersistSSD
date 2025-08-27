@@ -1,0 +1,22 @@
+# SystemD Resolved Configuration - For systemd-resolved environments
+# BTRFS Persistent LiveCD Build System
+#
+# This is used when systemd-resolved is managing DNS
+# Place at /etc/systemd/resolved.conf
+
+[Resolve]
+DNS=1.1.1.1 1.0.0.1 9.9.9.9 149.112.112.112 8.8.8.8 8.8.4.4
+FallbackDNS=208.67.222.222 208.67.220.220
+Domains=~.
+DNSSEC=yes
+DNSOverTLS=yes
+Cache=yes
+DNSStubListener=yes
+
+# Cloudflare DNS over TLS
+#DNS=1.1.1.1#cloudflare-dns.com
+#DNS=1.0.0.1#cloudflare-dns.com
+
+# Quad9 DNS over TLS
+#DNS=9.9.9.9#dns.quad9.net
+#DNS=149.112.112.112#dns.quad9.net

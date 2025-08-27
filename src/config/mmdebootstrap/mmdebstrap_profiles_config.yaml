@@ -1,0 +1,682 @@
+# MMDEBSTRAP BUILD PROFILES CONFIGURATION
+# Comprehensive configuration for mmdebstrap orchestrator integration
+# Version: 3.0.0
+
+# ============================================================================
+# BUILD PROFILES - Define different system configurations
+# ============================================================================
+
+build_profiles:
+  minimal:
+    description: "Minimal system with essential packages only"
+    variant: "minbase"
+    packages:
+      include:
+        - systemd
+        - dbus
+        - apt-utils
+        - locales
+      exclude:
+        - snapd
+        - ubuntu-advantage-tools
+    features:
+      zfs: false
+      security: false
+      development: false
+      desktop: false
+    disk_usage_mb: 350
+    
+  standard:
+    description: "Standard live system with common utilities"
+    variant: "minbase"
+    packages:
+      include:
+        - systemd
+        - systemd-sysv
+        - dbus
+        - apt-utils
+        - locales
+        - sudo
+        - wget
+        - curl
+        - gnupg
+        - ca-certificates
+        - openssh-server
+        - nano
+        - vim-tiny
+        - less
+        - more
+        - pciutils
+        - usbutils
+        - lshw
+        - dmidecode
+        - netbase
+        - ifupdown
+        - isc-dhcp-client
+        - network-manager
+      exclude:
+        - snapd
+        - ubuntu-advantage-tools
+        - popularity-contest
+    features:
+      zfs: false
+      security: false
+      development: false
+      desktop: false
+    disk_usage_mb: 650
+    
+  development:
+    description: "Development environment with toolchains and IDEs"
+    variant: "minbase"
+    packages:
+      include:
+        # Base system
+        - systemd
+        - systemd-sysv
+        - dbus
+        - apt-utils
+        - locales
+        - sudo
+        - wget
+        - curl
+        - gnupg
+        - ca-certificates
+        # Development tools
+        - build-essential
+        - gcc
+        - g++
+        - make
+        - cmake
+        - autoconf
+        - automake
+        - libtool
+        - pkg-config
+        - git
+        - subversion
+        - mercurial
+        # Programming languages
+        - python3
+        - python3-pip
+        - python3-dev
+        - python3-venv
+        - nodejs
+        - npm
+        - openjdk-11-jdk
+        - golang-go
+        - rust-all
+        # Editors and IDEs
+        - vim
+        - emacs-nox
+        - nano
+        # Debugging and profiling
+        - gdb
+        - valgrind
+        - strace
+        - ltrace
+        - perf-tools-unstable
+        # Documentation
+        - man-db
+        - manpages-dev
+        # Container support
+        - docker.io
+        - docker-compose
+        # Version control
+        - git-lfs
+        - git-flow
+      exclude:
+        - snapd
+        - ubuntu-advantage-tools
+    features:
+      zfs: false
+      security: false
+      development: true
+      desktop: false
+    disk_usage_mb: 1800
+    
+  zfs_optimized:
+    description: "ZFS-optimized system with native ZFS support and tools"
+    variant: "minbase"
+    packages:
+      include:
+        # Base system
+        - systemd
+        - systemd-sysv
+        - dbus
+        - apt-utils
+        - locales
+        - sudo
+        - wget
+        - curl
+        - gnupg
+        - ca-certificates
+        # ZFS core packages
+        - zfsutils-linux
+        - zfs-dkms
+        - linux-headers-generic
+        - linux-image-generic
+        - linux-generic
+        # Storage and filesystem tools
+        - smartmontools
+        - hdparm
+        - parted
+        - gdisk
+        - lvm2
+        - cryptsetup
+        - mdadm
+        # Hardware detection and monitoring
+        - pciutils
+        - usbutils
+        - lshw
+        - dmidecode
+        - lm-sensors
+        - iotop
+        - htop
+        # Network tools for ZFS replication
+        - openssh-server
+        - rsync
+        - netcat-openbsd
+        # Compression tools for ZFS
+        - zstd
+        - lz4
+        - gzip
+        - bzip2
+        - xz-utils
+        # System utilities
+        - cron
+        - logrotate
+        - sysstat
+        - tree
+        - ncdu
+      exclude:
+        - snapd
+        - ubuntu-advantage-tools
+    features:
+      zfs: true
+      security: false
+      development: false
+      desktop: false
+    disk_usage_mb: 950
+    
+  security_hardened:
+    description: "Security-hardened system with encryption and monitoring"
+    variant: "minbase"
+    packages:
+      include:
+        # Base system
+        - systemd
+        - systemd-sysv
+        - dbus
+        - apt-utils
+        - locales
+        - sudo
+        # Security core packages
+        - cryptsetup
+        - gnupg2
+        - openssl
+        - ca-certificates
+        # Firewall and network security
+        - ufw
+        - iptables
+        - netfilter-persistent
+        - fail2ban
+        - nmap
+        - tcpdump
+        - wireshark-common
+        # Access control and authentication
+        - apparmor
+        - apparmor-profiles
+        - apparmor-utils
+        - libpam-pwquality
+        - libpam-google-authenticator
+        # Auditing and monitoring
+        - auditd
+        - audispd-plugins
+        - aide
+        - rkhunter
+        - chkrootkit
+        - logwatch
+        - sysstat
+        # Secure communications
+        - openssh-server
+        - curl
+        - wget
+        - rsync
+        # System hardening
+        - acct
+        - psacct
+        - sysctl
+        # Secure file deletion
+        - secure-delete
+        - wipe
+        # Intrusion detection
+        - tiger
+        - tripwire
+        # Network monitoring
+        - iftop
+        - nethogs
+        - ss
+      exclude:
+        - snapd
+        - ubuntu-advantage-tools
+        - telnet
+        - rsh-client
+        - rsh-server
+        - talk
+        - ntalk
+        - talkd
+        - finger
+        - fingerd
+    features:
+      zfs: false
+      security: true
+      development: false
+      desktop: false
+    disk_usage_mb: 1100
+    
+  desktop_kde:
+    description: "KDE Plasma desktop environment with applications"
+    variant: "minbase"
+    packages:
+      include:
+        # Base system
+        - systemd
+        - systemd-sysv
+        - dbus
+        - apt-utils
+        - locales
+        - sudo
+        - wget
+        - curl
+        - gnupg
+        - ca-certificates
+        # X11 and graphics
+        - xorg
+        - xserver-xorg-core
+        - mesa-utils
+        - mesa-vulkan-drivers
+        # KDE Plasma desktop
+        - kde-plasma-desktop
+        - plasma-workspace
+        - kwin-x11
+        - plasma-nm
+        - plasma-pa
+        - sddm
+        - sddm-theme-breeze
+        # KDE applications
+        - konsole
+        - dolphin
+        - kate
+        - gwenview
+        - okular
+        - ark
+        - kcalc
+        - kfind
+        # Audio and video
+        - pulseaudio
+        - alsa-utils
+        - pavucontrol
+        - vlc
+        - audacious
+        # Network and connectivity
+        - network-manager
+        - network-manager-gnome
+        - wireless-tools
+        - wpasupplicant
+        - bluetooth
+        - bluez
+        - blueman
+        # File systems
+        - ntfs-3g
+        - exfat-fuse
+        - udisks2
+        # Web browser
+        - firefox
+        # Office suite
+        - libreoffice
+        # Graphics
+        - gimp
+        - inkscape
+      exclude:
+        - snapd
+        - ubuntu-advantage-tools
+    features:
+      zfs: false
+      security: false
+      development: false
+      desktop: true
+    disk_usage_mb: 3500
+    
+  ultimate:
+    description: "Ultimate system with all features enabled"
+    variant: "minbase"
+    packages:
+      include:
+        # Base system (comprehensive)
+        - systemd
+        - systemd-sysv
+        - dbus
+        - apt-utils
+        - locales
+        - sudo
+        - wget
+        - curl
+        - gnupg2
+        - ca-certificates
+        # Development environment
+        - build-essential
+        - gcc
+        - g++
+        - make
+        - cmake
+        - git
+        - python3
+        - python3-pip
+        - python3-dev
+        - nodejs
+        - npm
+        - openjdk-11-jdk
+        - docker.io
+        - docker-compose
+        # ZFS support
+        - zfsutils-linux
+        - zfs-dkms
+        - linux-headers-generic
+        - smartmontools
+        - hdparm
+        # Security hardening
+        - cryptsetup
+        - openssl
+        - fail2ban
+        - ufw
+        - apparmor
+        - auditd
+        - rkhunter
+        - chkrootkit
+        # Desktop environment
+        - kde-plasma-desktop
+        - plasma-workspace
+        - xorg
+        - firefox
+        - libreoffice
+        # System utilities
+        - pciutils
+        - usbutils
+        - lshw
+        - dmidecode
+        - htop
+        - iotop
+        - tree
+        - ncdu
+        # Network tools
+        - openssh-server
+        - rsync
+        - netcat-openbsd
+        - nmap
+        - tcpdump
+      exclude:
+        - snapd
+    features:
+      zfs: true
+      security: true
+      development: true
+      desktop: true
+    disk_usage_mb: 5500
+
+# ============================================================================
+# MMDEBSTRAP CONFIGURATION - Tool-specific settings
+# ============================================================================
+
+mmdebstrap:
+  # Cache and storage settings
+  cache_dir: "${PROJECT_ROOT}/cache/mmdebstrap"
+  hooks_dir: "${PROJECT_ROOT}/cache/mmdebstrap/hooks"
+  keyrings_dir: "${PROJECT_ROOT}/cache/mmdebstrap/keyrings"
+  
+  # Default configuration
+  default_variant: "minbase"
+  default_components:
+    - main
+    - restricted
+    - universe
+    - multiverse
+  
+  # APT optimizations
+  apt_opts:
+    - 'Acquire::Check-Valid-Until "false"'
+    - 'APT::Install-Recommends "false"'
+    - 'APT::Install-Suggests "false"'
+    - 'Acquire::Languages "none"'
+    - 'Acquire::Retries "3"'
+    - 'Acquire::Timeout "30"'
+    - 'Dpkg::Use-Pty "0"'
+  
+  # Performance settings
+  performance:
+    parallel_downloads: true
+    compression: "lz4"
+    timeout_seconds: 1800  # 30 minutes
+    max_retries: 3
+    
+  # Security settings
+  security:
+    verify_signatures: true
+    use_security_mirror: true
+    check_valid_until: false
+    allow_unauthenticated: false
+    
+  # Mirror configuration
+  mirrors:
+    primary: "http://archive.ubuntu.com/ubuntu"
+    security: "http://security.ubuntu.com/ubuntu"
+    fallback:
+      - "http://us.archive.ubuntu.com/ubuntu"
+      - "http://mirror.math.princeton.edu/pub/ubuntu"
+
+# ============================================================================
+# ORCHESTRATOR INTEGRATION - Framework integration settings
+# ============================================================================
+
+orchestrator:
+  # Stage configuration
+  stage_name: "03-mmdebstrap-bootstrap"
+  stage_version: "3.0.0"
+  stage_description: "Enhanced Bootstrap with mmdebstrap"
+  
+  # Integration modules
+  integration_modules:
+    - name: "zfs_boot_persistence"
+      enabled: true
+      condition: "zfs_enabled"
+    - name: "security_framework"
+      enabled: true
+      condition: "security_enabled"
+    - name: "hardware_detection"
+      enabled: true
+      condition: "always"
+    - name: "monitoring_setup"
+      enabled: true
+      condition: "development_enabled"
+    - name: "desktop_integration"
+      enabled: true
+      condition: "desktop_enabled"
+  
+  # Checkpoint configuration
+  checkpoints:
+    enabled: true
+    create_snapshots: true
+    snapshot_names:
+      pre_bootstrap: "pre_mmdebstrap_bootstrap"
+      post_bootstrap: "post_mmdebstrap_bootstrap"
+      per_module: true
+  
+  # Build state tracking
+  build_state:
+    enabled: true
+    file: "${BUILD_ROOT}/build-state.json"
+    include_metrics: true
+    track_duration: true
+    track_packages: true
+    
+  # Logging configuration
+  logging:
+    enabled: true
+    level: "INFO"
+    file: "${LOG_DIR}/mmdebstrap.log"
+    include_debug: false
+    stream_output: true
+
+# ============================================================================
+# ENVIRONMENT VARIABLES - Expected environment configuration
+# ============================================================================
+
+environment_variables:
+  required:
+    - name: "CHROOT_DIR"
+      description: "Target chroot directory path"
+      example: "/tmp/build/chroot"
+    - name: "PROJECT_ROOT"
+      description: "Project root directory path"
+      example: "/path/to/project"
+  
+  optional:
+    - name: "BUILD_SUITE"
+      description: "Ubuntu suite to bootstrap"
+      default: "noble"
+      example: "noble"
+    - name: "BUILD_ARCH"
+      description: "Target architecture"
+      default: "amd64"
+      example: "amd64"
+    - name: "BUILD_PROFILE"
+      description: "Build profile to use"
+      default: "standard"
+      example: "development"
+    - name: "ZFS_ENABLED"
+      description: "Enable ZFS integration"
+      default: "0"
+      example: "1"
+    - name: "SECURITY_ENABLED"
+      description: "Enable security hardening"
+      default: "0"
+      example: "1"
+    - name: "DEBUG"
+      description: "Enable debug logging"
+      default: "0"
+      example: "1"
+
+# ============================================================================
+# HOOK CONFIGURATIONS - Custom setup hooks
+# ============================================================================
+
+hooks:
+  # Orchestrator integration hooks
+  orchestrator:
+    - name: "setup01-orchestrator.sh"
+      description: "Basic orchestrator integration setup"
+      enabled: true
+      order: 1
+      
+    - name: "setup02-zfs.sh"
+      description: "ZFS orchestrator integration"
+      enabled: true
+      condition: "zfs_enabled"
+      order: 2
+      
+    - name: "setup03-security.sh"
+      description: "Security orchestrator integration"
+      enabled: true
+      condition: "security_enabled"
+      order: 3
+  
+  # Custom user hooks directory
+  custom_hooks_dir: "${PROJECT_ROOT}/hooks/custom"
+  
+  # Hook execution settings
+  execution:
+    timeout_seconds: 300  # 5 minutes per hook
+    fail_on_error: true
+    log_output: true
+
+# ============================================================================
+# VALIDATION RULES - System validation configuration
+# ============================================================================
+
+validation:
+  # Essential files that must exist after bootstrap
+  essential_files:
+    - "/bin/bash"
+    - "/etc/os-release"
+    - "/usr/bin/apt"
+    - "/bin/systemctl"
+  
+  # Essential directories
+  essential_directories:
+    - "/etc"
+    - "/var"
+    - "/usr"
+    - "/opt"
+    - "/opt/ultrathink"
+    - "/etc/orchestrator"
+  
+  # System checks
+  system_checks:
+    - name: "release_verification"
+      description: "Verify correct Ubuntu release"
+      command: "lsb_release -cs"
+      enabled: true
+      
+    - name: "package_manager"
+      description: "Verify APT functionality"
+      command: "apt --version"
+      enabled: true
+      
+    - name: "systemd_check"
+      description: "Verify systemd installation"
+      command: "systemctl --version"
+      enabled: true
+
+# ============================================================================
+# COMPATIBILITY - Backward compatibility settings
+# ============================================================================
+
+compatibility:
+  # Support for older orchestrator versions
+  legacy_support: true
+  
+  # Fallback settings
+  fallback:
+    use_debootstrap: true
+    preserve_functionality: true
+    maintain_api: true
+  
+  # Migration settings
+  migration:
+    auto_detect_old_builds: true
+    backup_old_configs: true
+    provide_upgrade_path: true
+
+# ============================================================================
+# METADATA - Configuration metadata
+# ============================================================================
+
+metadata:
+  version: "3.0.0"
+  created_date: "2025-08-27"
+  author: "Build Orchestrator Team"
+  description: "mmdebstrap orchestrator integration configuration"
+  compatibility_version: "3.0.0"
+  schema_version: "1.0"
+  
+  # Change log
+  changelog:
+    - version: "3.0.0"
+      date: "2025-08-27"
+      changes:
+        - "Initial mmdebstrap orchestrator integration"
+        - "Multiple build profiles support"
+        - "Comprehensive security hardening options"
+        - "ZFS optimization profile"
+        - "Desktop environment integration"
+        - "Advanced hook system"
+        - "Build state tracking"
+        - "Checkpoint integration"

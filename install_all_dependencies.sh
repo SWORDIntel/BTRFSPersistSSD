@@ -340,10 +340,46 @@ install_package_group() {
 
 # Main installation
 main() {
-    # Remove CDROM source if present (causes issues with universe/multiverse)
-    log_info "Removing CDROM sources..."
-    sed -i '/^deb cdrom:/d' /etc/apt/sources.list
-    sed -i '/^deb-src cdrom:/d' /etc/apt/sources.list
+    # Apply our authoritative configuration first
+    log_info "Applying authoritative repository and DNS configuration..."
+    
+    # Check if config-apply module exists and use it
+    SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+    if [[ -f "$SCRIPT_DIR/src/modules/config-apply.sh" ]]; then
+        log_info "Using config-apply module for configuration"
+        bash "$SCRIPT_DIR/src/modules/config-apply.sh" / host || {
+            log_warn "Config module failed, applying manually"
+            # Fallback to manual configuration
+            if [[ -f "$SCRIPT_DIR/src/config/sources.list" ]]; then
+                cp "$SCRIPT_DIR/src/config/sources.list" /etc/apt/sources.list
+                log_success "Applied authoritative sources.list"
+            fi
+            if [[ -f "$SCRIPT_DIR/src/config/resolv.conf" ]]; then
+                cp "$SCRIPT_DIR/src/config/resolv.conf" /etc/resolv.conf
+                log_success "Applied authoritative resolv.conf"
+            fi
+        }
+    else
+        # Direct fallback if module doesn't exist
+        if [[ -f "$SCRIPT_DIR/src/config/sources.list" ]]; then
+            log_info "Applying authoritative sources.list directly"
+            cp /etc/apt/sources.list /etc/apt/sources.list.backup.$(date +%Y%m%d) 2>/dev/null || true
+            cp "$SCRIPT_DIR/src/config/sources.list" /etc/apt/sources.list
+        else
+            # Last resort: remove CDROM and add repositories manually
+            log_warn "No config files found, configuring manually"
+            sed -i '/^deb cdrom:/d' /etc/apt/sources.list
+            sed -i '/^deb-src cdrom:/d' /etc/apt/sources.list
+            add-apt-repository universe -y
+            add-apt-repository multiverse -y
+        fi
+        
+        if [[ -f "$SCRIPT_DIR/src/config/resolv.conf" ]]; then
+            log_info "Applying authoritative resolv.conf directly"
+            cp /etc/resolv.conf /etc/resolv.conf.backup.$(date +%Y%m%d) 2>/dev/null || true
+            cp "$SCRIPT_DIR/src/config/resolv.conf" /etc/resolv.conf
+        fi
+    fi
     
     # Configure APT for speed
     cat > /etc/apt/apt.conf.d/99-speed << 'EOF'
@@ -353,35 +389,54 @@ APT::Install-Recommends "false";
 APT::Install-Suggests "false";
 DPkg::Options::="--force-unsafe-io";
 EOF
-
-    # Add universe and multiverse repositories
-    add-apt-repository universe -y
-    add-apt-repository multiverse -y
-    
-    # Add contrib and non-free for firmware (for Debian compatibility)
-    if grep -q "debian" /etc/os-release; then
-        sed -i 's/main$/main contrib non-free non-free-firmware/g' /etc/apt/sources.list
-    fi
     
     apt-get update
     
-    # Install each category (mandatory)
+    # CRITICAL: Remove any existing ZFS versions first
+    log_info "Removing any existing ZFS installations..."
+    apt-get remove -y --purge zfsutils-linux zfs-dkms zfs-initramfs zfs-zed \
+        libzfs4linux libzpool5linux libnvpair3linux libuutil3linux \
+        zfs-dracut zpool-features 2>/dev/null || true
+    apt-get autoremove -y 2>/dev/null || true
+    
+    # Remove ZFS kernel modules if loaded
+    rmmod zfs 2>/dev/null || true
+    rmmod spl 2>/dev/null || true
+    
+    # Clean any ZFS remnants
+    rm -rf /lib/modules/*/extra/zfs* 2>/dev/null || true
+    rm -rf /lib/modules/*/extra/spl* 2>/dev/null || true
+    
+    log_success "Cleaned existing ZFS installations"
+    
+    # Install build essentials and kernel packages first (needed for ZFS)
     install_package_group "Build Essentials" "${BUILD_ESSENTIALS[@]}"
     install_package_group "Kernel Packages" "${KERNEL_PACKAGES[@]}"
+    
+    # Install ZFS build dependencies
     install_package_group "ZFS Build Dependencies" "${ZFS_PACKAGES[@]}"
     
-    # Check if we need to build ZFS 2.3.4 from source
-    log_info "Checking ZFS version..."
+    # Build ZFS 2.3.4 from source immediately
+    log_info "Building ZFS 2.3.4 from source..."
+    if [[ -f "$SCRIPT_DIR/src/modules/zfs-builder.sh" ]]; then
+        bash "$SCRIPT_DIR/src/modules/zfs-builder.sh" / host || {
+            log_warn "ZFS build failed on host, will retry in chroot during build"
+        }
+    else
+        log_warn "ZFS builder module not found, will build during main process"
+    fi
+    
+    # Verify ZFS version
     if command -v zfs >/dev/null 2>&1; then
         ZFS_VERSION=$(zfs version 2>/dev/null | grep -oP 'zfs-\K[0-9.]+' | head -1)
         if [[ "$ZFS_VERSION" == "2.3.4" ]]; then
-            log_success "ZFS 2.3.4 already installed"
+            log_success "ZFS 2.3.4 successfully installed on host"
         else
             log_warn "ZFS version $ZFS_VERSION found, not 2.3.4"
-            log_info "ZFS 2.3.4 will be built from source during build process"
+            log_info "Will ensure ZFS 2.3.4 in chroot environment"
         fi
     else
-        log_info "ZFS not installed, will be built from source during build process"
+        log_info "ZFS not installed on host, will be built in chroot"
     fi
     install_package_group "Container Tools" "${CONTAINER_PACKAGES[@]}"
     install_package_group "Filesystem Tools" "${FILESYSTEM_PACKAGES[@]}"

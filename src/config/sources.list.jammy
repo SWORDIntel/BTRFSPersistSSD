@@ -1,0 +1,23 @@
+# Ubuntu 22.04 (Jammy Jellyfish) - Authoritative Repository Configuration
+# Fallback configuration for Jammy-based builds
+# Maintained by: BTRFS Persistent LiveCD Build System
+
+# Main Ubuntu Repositories
+deb http://archive.ubuntu.com/ubuntu/ jammy main restricted universe multiverse
+deb http://archive.ubuntu.com/ubuntu/ jammy-updates main restricted universe multiverse
+deb http://archive.ubuntu.com/ubuntu/ jammy-security main restricted universe multiverse
+deb http://archive.ubuntu.com/ubuntu/ jammy-backports main restricted universe multiverse
+
+# Source repositories (for building packages)
+deb-src http://archive.ubuntu.com/ubuntu/ jammy main restricted universe multiverse
+deb-src http://archive.ubuntu.com/ubuntu/ jammy-updates main restricted universe multiverse
+deb-src http://archive.ubuntu.com/ubuntu/ jammy-security main restricted universe multiverse
+deb-src http://archive.ubuntu.com/ubuntu/ jammy-backports main restricted universe multiverse
+
+# Security updates (additional mirror for redundancy)
+deb http://security.ubuntu.com/ubuntu/ jammy-security main restricted universe multiverse
+deb-src http://security.ubuntu.com/ubuntu/ jammy-security main restricted universe multiverse
+
+# Canonical Partner repository (for proprietary software)
+deb http://archive.canonical.com/ubuntu jammy partner
+deb-src http://archive.canonical.com/ubuntu jammy partner

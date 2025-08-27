@@ -101,10 +101,12 @@ readonly CHECKPOINT_INTERVAL="${CHECKPOINT_INTERVAL:-300}"  # 5 minutes
 
 # Module execution order - TACTICAL SEQUENCE
 declare -A MODULE_EXECUTION_ORDER=(
+    [5]="config-apply"              # Apply authoritative configs FIRST
     [10]="dependency-validation"
     [15]="environment-setup" 
     [20]="mmdebootstrap/orchestrator"         # MMDEBootstrap integration
     [25]="stages-enhanced/03-mmdebstrap-bootstrap"  # Enhanced bootstrap stage
+    [30]="config-apply"              # Reapply configs to chroot
     [35]="zfs-builder"              # Build ZFS 2.3.4 from source if needed
     [40]="kernel-compilation"
     [50]="package-installation"    # CRITICAL - Installs all packages

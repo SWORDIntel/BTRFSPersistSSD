@@ -1,0 +1,44 @@
+# Ubuntu 24.04 (Noble Numbat) - Authoritative Repository Configuration
+# This is the source of truth for package repositories
+# Maintained by: BTRFS Persistent LiveCD Build System
+
+# Main Ubuntu Repositories
+deb http://archive.ubuntu.com/ubuntu/ noble main restricted universe multiverse
+deb http://archive.ubuntu.com/ubuntu/ noble-updates main restricted universe multiverse
+deb http://archive.ubuntu.com/ubuntu/ noble-security main restricted universe multiverse
+deb http://archive.ubuntu.com/ubuntu/ noble-backports main restricted universe multiverse
+
+# Source repositories (for building packages)
+deb-src http://archive.ubuntu.com/ubuntu/ noble main restricted universe multiverse
+deb-src http://archive.ubuntu.com/ubuntu/ noble-updates main restricted universe multiverse
+deb-src http://archive.ubuntu.com/ubuntu/ noble-security main restricted universe multiverse
+deb-src http://archive.ubuntu.com/ubuntu/ noble-backports main restricted universe multiverse
+
+# Security updates (additional mirror for redundancy)
+deb http://security.ubuntu.com/ubuntu/ noble-security main restricted universe multiverse
+deb-src http://security.ubuntu.com/ubuntu/ noble-security main restricted universe multiverse
+
+# Canonical Partner repository (for proprietary software)
+deb http://archive.canonical.com/ubuntu noble partner
+deb-src http://archive.canonical.com/ubuntu noble partner
+
+# Additional mirrors for better availability (commented out by default)
+# Uncomment to use regional mirrors for better speed
+
+# US Mirror (MIT)
+#deb http://mirrors.mit.edu/ubuntu/ noble main restricted universe multiverse
+#deb http://mirrors.mit.edu/ubuntu/ noble-updates main restricted universe multiverse
+#deb http://mirrors.mit.edu/ubuntu/ noble-security main restricted universe multiverse
+
+# EU Mirror (Germany)
+#deb http://de.archive.ubuntu.com/ubuntu/ noble main restricted universe multiverse
+#deb http://de.archive.ubuntu.com/ubuntu/ noble-updates main restricted universe multiverse
+#deb http://de.archive.ubuntu.com/ubuntu/ noble-security main restricted universe multiverse
+
+# Asia Mirror (Japan)
+#deb http://jp.archive.ubuntu.com/ubuntu/ noble main restricted universe multiverse
+#deb http://jp.archive.ubuntu.com/ubuntu/ noble-updates main restricted universe multiverse
+#deb http://jp.archive.ubuntu.com/ubuntu/ noble-security main restricted universe multiverse
+
+# Note: NEVER include cdrom sources in production builds
+# Note: This configuration includes universe and multiverse for maximum package availability
