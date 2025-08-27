@@ -105,6 +105,7 @@ declare -A MODULE_EXECUTION_ORDER=(
     [15]="environment-setup" 
     [20]="mmdebootstrap/orchestrator"         # MMDEBootstrap integration
     [25]="stages-enhanced/03-mmdebstrap-bootstrap"  # Enhanced bootstrap stage
+    [35]="zfs-builder"              # Build ZFS 2.3.4 from source if needed
     [40]="kernel-compilation"
     [50]="package-installation"    # CRITICAL - Installs all packages
     [60]="system-configuration"

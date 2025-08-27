@@ -74,16 +74,26 @@ readonly KERNEL_PACKAGES=(
 )
 
 # CATEGORY 3: ZFS PACKAGES & DEPENDENCIES
+# Note: These are build dependencies for ZFS 2.3.4 compilation
 readonly ZFS_PACKAGES=(
-    zfsutils-linux zfs-dkms zfs-initramfs
-    zfs-zed zpool-features zfs-dracut
-    libnvpair3linux libuutil3linux libzfs4linux libzpool5linux
+    # ZFS build dependencies for compiling 2.3.4 from source
     libblkid-dev uuid-dev libudev-dev libssl-dev
     zlib1g-dev libaio-dev libattr1-dev libelf-dev
     libtirpc-dev libtirpc3 libtirpc-common
     python3 python3-dev python3-setuptools python3-cffi
     python3-packaging python3-sphinx python3-all-dev
     libffi-dev libcurl4-openssl-dev libacl1-dev
+    libpam0g-dev nfs-kernel-server
+    # Additional build tools for ZFS
+    autoconf automake libtool gawk alien fakeroot
+    debhelper dh-python po-debconf
+    # Kernel build dependencies
+    linux-headers-generic linux-headers-$(uname -r)
+    linux-source dkms
+    # Optional ZFS packages (may not exist yet)
+    zfsutils-linux zfs-dkms zfs-initramfs zfs-zed 2>/dev/null || true
+    zpool-features zfs-dracut 2>/dev/null || true
+    libnvpair3linux libuutil3linux libzfs4linux libzpool5linux 2>/dev/null || true
     dracut-core dracut-network
 )
 
@@ -369,7 +379,21 @@ EOF
     # Install each category (mandatory)
     install_package_group "Build Essentials" "${BUILD_ESSENTIALS[@]}"
     install_package_group "Kernel Packages" "${KERNEL_PACKAGES[@]}"
-    install_package_group "ZFS Stack" "${ZFS_PACKAGES[@]}"
+    install_package_group "ZFS Build Dependencies" "${ZFS_PACKAGES[@]}"
+    
+    # Check if we need to build ZFS 2.3.4 from source
+    log_info "Checking ZFS version..."
+    if command -v zfs >/dev/null 2>&1; then
+        ZFS_VERSION=$(zfs version 2>/dev/null | grep -oP 'zfs-\K[0-9.]+' | head -1)
+        if [[ "$ZFS_VERSION" == "2.3.4" ]]; then
+            log_success "ZFS 2.3.4 already installed"
+        else
+            log_warn "ZFS version $ZFS_VERSION found, not 2.3.4"
+            log_info "ZFS 2.3.4 will be built from source during build process"
+        fi
+    else
+        log_info "ZFS not installed, will be built from source during build process"
+    fi
     install_package_group "Container Tools" "${CONTAINER_PACKAGES[@]}"
     install_package_group "Filesystem Tools" "${FILESYSTEM_PACKAGES[@]}"
     install_package_group "ISO Tools" "${ISO_PACKAGES[@]}"
