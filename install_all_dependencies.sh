@@ -26,6 +26,11 @@ log_info "Estimated time: 15-30 minutes"
 log_info "Disk space required: ~5-15GB"
 echo
 
+# CRITICAL: Remove any existing ZFS packages that might interfere
+log_info "Removing any existing ZFS packages to prevent conflicts..."
+apt-get remove --purge -y zfs-dkms zfsutils-linux zfs-initramfs zfs-zed zfs-dracut 2>/dev/null || true
+apt-get autoremove -y 2>/dev/null || true
+
 # CRITICAL: Apply authoritative sources FIRST before any apt operations
 log_info "Applying authoritative repository configuration..."
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -106,9 +111,9 @@ KERNEL_PACKAGES=(
     linux-source-$(uname -r | cut -d. -f1,2) linux-doc
 )
 
-# CATEGORY 3: ZFS PACKAGES & DEPENDENCIES
-# Note: These are build dependencies for ZFS 2.3.4 compilation
-ZFS_PACKAGES=(
+# CATEGORY 3: ZFS BUILD DEPENDENCIES ONLY
+# Note: We build ZFS 2.3.4 from source, DO NOT install package versions
+ZFS_BUILD_DEPS=(
     # ZFS build dependencies for compiling 2.3.4 from source
     libblkid-dev uuid-dev libudev-dev libssl-dev
     zlib1g-dev libaio-dev libattr1-dev libelf-dev
@@ -122,12 +127,9 @@ ZFS_PACKAGES=(
     debhelper dh-python po-debconf
     # Kernel build dependencies
     linux-headers-generic linux-headers-$(uname -r)
-    linux-source dkms
-    # Optional ZFS packages (may not exist yet)
-    zfsutils-linux zfs-dkms zfs-initramfs zfs-zed
-    zpool-features zfs-dracut
-    libnvpair3linux libuutil3linux libzfs4linux libzpool5linux
-    dracut-core dracut-network
+    linux-source
+    # DO NOT INSTALL: zfsutils-linux zfs-dkms zfs-initramfs zfs-zed
+    # These will be built from source version 2.3.4
 )
 
 # CATEGORY 4: SYSTEM CONTAINER & VIRTUALIZATION
@@ -467,7 +469,7 @@ EOF
     install_package_group "Kernel Packages" "${KERNEL_PACKAGES[@]}"
     
     # Install ZFS build dependencies
-    install_package_group "ZFS Build Dependencies" "${ZFS_PACKAGES[@]}"
+    install_package_group "ZFS Build Dependencies" "${ZFS_BUILD_DEPS[@]}"
     
     # Build ZFS 2.3.4 from source immediately
     log_info "Building ZFS 2.3.4 from source..."
