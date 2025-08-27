@@ -1,182 +1,307 @@
 #!/bin/bash
 #
-# Build Orchestrator - Master Build Control Script v2.0
-# Version: 2.0.0 - PRODUCTION
-# Part of: LiveCD Generation System
+# BUILD ORCHESTRATOR v3.2 - MASTER CONTROL SCRIPT
+# CLASSIFICATION: OPERATIONAL
+# DESIGNATION: TACTICAL_BUILD_COMMAND
+# STATUS: WEAPONS FREE - PRECISION ENGAGEMENT MODE
 #
-# Requirements:
-#   - command: systemd-nspawn
-#   - file: common_module_functions.sh
-#   - file: install_all_dependencies.sh
-# Configuration:
-#   - BUILD_ROOT: Build directory path
-#   - MODULE_DIR: Module scripts location
+# Mission: Coordinate all build modules for ISO generation
+# ROE: Evidence-based engagement, quantified precision only
+# Doctrine: Search and destroy ambiguity, intelligence drives operations
 #
 
-# Source tactical support infrastructure
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-REPO_ROOT="$SCRIPT_DIR"
-
-# Source common functions
-[[ -f "$REPO_ROOT/common_module_functions.sh" ]] && \
-    source "$REPO_ROOT/common_module_functions.sh" || {
-        echo "ERROR: Common module functions not found" >&2
-        exit 1
-    }
-
-# Script configuration
-readonly SCRIPT_NAME="build-orchestrator"
-readonly SCRIPT_VERSION="2.0.0"
-readonly SCRIPT_STATUS="PRODUCTION"
-
-# Enable strict mode
 set -eEuo pipefail
 IFS=$'\n\t'
 
-# Set error trap
-trap 'error_handler $LINENO $? "$BASH_COMMAND"' ERR
-
 #=============================================================================
-# BUILD CONFIGURATION - TACTICAL PARAMETERS
+# TACTICAL CONFIGURATION - OPERATIONAL PARAMETERS
 #=============================================================================
 
-# Build directories
+# Script metadata
+readonly SCRIPT_NAME="build-orchestrator"
+readonly SCRIPT_VERSION="3.2.0"
+readonly SCRIPT_STATUS="PRODUCTION-READY"
+readonly CLASSIFICATION="OPERATIONAL"
+
+# Establish command structure
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+readonly REPO_ROOT="$SCRIPT_DIR"
+
+# Color coding for tactical display
+if [[ -t 1 ]] && command -v tput >/dev/null 2>&1 && [[ $(tput colors 2>/dev/null) -ge 8 ]]; then
+    readonly RED='\033[0;31m'
+    readonly GREEN='\033[0;32m'
+    readonly YELLOW='\033[1;33m'
+    readonly BLUE='\033[0;34m'
+    readonly CYAN='\033[0;36m'
+    readonly RESET='\033[0m'
+else
+    readonly RED='' GREEN='' YELLOW='' BLUE='' CYAN='' RESET=''
+fi
+
+#=============================================================================
+# INTELLIGENCE SOURCES - COMMON FUNCTIONS RECONNAISSANCE
+#=============================================================================
+
+# Source common functions from strategic locations
+source_common_functions() {
+    local common_found=false
+    
+    # Primary theater: Root directory
+    if [[ -f "$REPO_ROOT/common_module_functions.sh" ]]; then
+        source "$REPO_ROOT/common_module_functions.sh"
+        common_found=true
+        log_info "Common functions loaded from root theater"
+        
+    # Secondary theater: src/modules
+    elif [[ -f "$REPO_ROOT/src/modules/common_module_functions.sh" ]]; then
+        source "$REPO_ROOT/src/modules/common_module_functions.sh"
+        common_found=true
+        log_info "Common functions loaded from modules theater"
+        
+    # Tertiary theater: src/python
+    elif [[ -f "$REPO_ROOT/src/python/common_module_functions.sh" ]]; then
+        source "$REPO_ROOT/src/python/common_module_functions.sh"
+        common_found=true
+        log_info "Common functions loaded from python theater"
+    fi
+    
+    if [[ "$common_found" == "false" ]]; then
+        # Fallback tactical logging
+        log_info() { echo -e "${BLUE}[INFO]${RESET} $*"; }
+        log_error() { echo -e "${RED}[ERROR]${RESET} $*" >&2; exit 1; }
+        log_warn() { echo -e "${YELLOW}[WARN]${RESET} $*"; }
+        log_success() { echo -e "${GREEN}[SUCCESS]${RESET} $*"; }
+        log_debug() { [[ "${DEBUG:-0}" == "1" ]] && echo -e "${CYAN}[DEBUG]${RESET} $*"; }
+        
+        log_error "TACTICAL FAILURE: Common functions not found in any theater"
+    fi
+}
+
+# Initialize command structure
+source_common_functions
+
+#=============================================================================
+# BUILD ENVIRONMENT - BATTLEFIELD PREPARATION
+#=============================================================================
+
+# Build directories and parameters
 readonly BUILD_ROOT="${BUILD_ROOT:-/tmp/build}"
-readonly MODULE_DIR="${MODULE_DIR:-$REPO_ROOT/src/modules}"
+readonly MODULE_DIR="$REPO_ROOT/src/modules"
+readonly PYTHON_DIR="$REPO_ROOT/src/python"
+readonly CONFIG_DIR="$REPO_ROOT/src/config"
 readonly CHECKPOINT_DIR="$BUILD_ROOT/.checkpoints"
 readonly METRICS_DIR="$BUILD_ROOT/.metrics"
+readonly LOG_DIR="$BUILD_ROOT/.logs"
 
-# Build parameters
+# Operational parameters
 readonly MAX_PARALLEL_JOBS="${MAX_PARALLEL_JOBS:-$(nproc)}"
 readonly BUILD_TIMEOUT="${BUILD_TIMEOUT:-7200}"  # 2 hours default
 readonly CHECKPOINT_INTERVAL="${CHECKPOINT_INTERVAL:-300}"  # 5 minutes
 
-# Module execution order (percentage -> module name)
+# Module execution order - TACTICAL SEQUENCE
 declare -A MODULE_EXECUTION_ORDER=(
     [10]="dependency-validation"
-    [20]="environment-setup"
-    [30]="base-system"
+    [15]="environment-setup" 
+    [20]="mmdebootstrap/orchestrator"         # MMDEBootstrap integration
+    [25]="stages-enhanced/03-mmdebstrap-bootstrap"  # Enhanced bootstrap stage
     [40]="kernel-compilation"
-    [50]="package-installation"
+    [50]="package-installation"    # CRITICAL - Installs all packages
     [60]="system-configuration"
     [70]="initramfs-generation"
     [80]="iso-assembly"
     [90]="validation"
-    [100]="finalization"
+    [95]="finalization"
 )
 
-#=============================================================================
-# BUILD STATE MANAGEMENT - BATTLEFIELD TRACKING
-#=============================================================================
-
-# Global build state
-declare -g BUILD_START_TIME
+# Mission state tracking
+declare -g BUILD_START_TIME=0
 declare -g BUILD_PHASE=""
 declare -g BUILD_PROGRESS=0
 declare -g BUILD_STATUS="INITIALIZING"
 declare -g FAILED_MODULES=()
 declare -g COMPLETED_MODULES=()
+declare -g SKIPPED_MODULES=()
 declare -g MODULE_METRICS=()
 
-# Initialize build state
+#=============================================================================
+# ERROR HANDLING - CASUALTY MANAGEMENT
+#=============================================================================
+
+error_handler() {
+    local line_no=$1
+    local error_code=$2
+    local command="$3"
+    
+    log_error "TACTICAL FAILURE at line $line_no (exit code: $error_code)"
+    log_error "Failed command: $command"
+    log_error "Build phase: $BUILD_PHASE"
+    log_error "Build progress: ${BUILD_PROGRESS}%"
+    
+    # Generate casualty report
+    generate_failure_report "$line_no" "$error_code" "$command"
+    
+    # Cleanup operations
+    cleanup_on_failure
+    
+    exit $error_code
+}
+
+trap 'error_handler $LINENO $? "$BASH_COMMAND"' ERR
+
+#=============================================================================
+# BATTLEFIELD MANAGEMENT - BUILD STATE CONTROL
+#=============================================================================
+
 initialize_build_state() {
     BUILD_START_TIME=$(date +%s)
     BUILD_PHASE="INITIALIZATION"
     BUILD_PROGRESS=0
     BUILD_STATUS="ACTIVE"
     
-    # Create build directories
+    log_info "=== BUILD ORCHESTRATION INITIALIZATION ==="
+    log_info "Script: $SCRIPT_NAME v$SCRIPT_VERSION"
+    log_info "Classification: $CLASSIFICATION"
+    log_info "Build root: $BUILD_ROOT"
+    log_info "Module directory: $MODULE_DIR"
+    log_info "Started: $(date -Iseconds)"
+    
+    # Create operational directories
     safe_mkdir "$BUILD_ROOT" 755
     safe_mkdir "$CHECKPOINT_DIR" 755
-    safe_mkdir "$METRICS_DIR" 755
+    safe_mkdir "$METRICS_DIR" 755 
+    safe_mkdir "$LOG_DIR" 755
     
     # Create initial checkpoint
     create_checkpoint "build_start" "$BUILD_ROOT"
     
-    log_success "Build state initialized at $(date -Iseconds)"
+    log_success "Build state initialized - WEAPONS FREE"
 }
 
 #=============================================================================
 # MODULE EXECUTION ENGINE - FORCE DEPLOYMENT
 #=============================================================================
 
-# Execute single module
 execute_module() {
     local module_name="$1"
-    local module_script="$MODULE_DIR/${module_name}.sh"
+    local module_phase="${2:-$(echo "$module_name" | tr '-' '_' | tr '/' '_')}"
     local module_start_time=$(date +%s)
+    local module_script=""
+    
+    BUILD_PHASE="$module_phase"
+    
+    # Determine module script location
+    if [[ "$module_name" == *"/"* ]]; then
+        # Subdirectory module (e.g., mmdebootstrap/orchestrator)
+        module_script="$MODULE_DIR/${module_name}.sh"
+    else
+        # Root level module
+        module_script="$MODULE_DIR/${module_name}.sh"
+    fi
     
     # Validate module exists
     if [[ ! -f "$module_script" ]]; then
-        log_error "Module not found: $module_script"
+        log_error "TACTICAL FAILURE: Module not found - $module_script"
         FAILED_MODULES+=("$module_name")
         return 1
     fi
     
-    log_info "Executing module: $module_name"
+    log_info "=== DEPLOYING MODULE: $module_name ==="
+    log_info "Script location: $module_script"
+    log_info "Phase: $module_phase"
     
     # Create module checkpoint
-    create_checkpoint "module_${module_name}_start" "$BUILD_ROOT"
+    create_checkpoint "module_${module_phase}_start" "$BUILD_ROOT"
     
-    # Execute with timeout and error handling
+    # Execute module with timeout and error handling
     local result=0
-    if timeout "$BUILD_TIMEOUT" bash "$module_script" "$BUILD_ROOT"; then
+    local module_log="$LOG_DIR/module_${module_phase}.log"
+    
+    if timeout "$BUILD_TIMEOUT" bash "$module_script" "$BUILD_ROOT" 2>&1 | tee "$module_log"; then
         local module_end_time=$(date +%s)
         local duration=$((module_end_time - module_start_time))
         
         COMPLETED_MODULES+=("$module_name")
         MODULE_METRICS+=("${module_name}:${duration}s")
         
-        log_success "Module completed: $module_name (${duration}s)"
-        create_checkpoint "module_${module_name}_complete" "$BUILD_ROOT"
+        log_success "MODULE SECURED: $module_name (${duration}s)"
+        create_checkpoint "module_${module_phase}_complete" "$BUILD_ROOT"
+        
+        # Update progress based on module completion
+        update_build_progress "$module_name"
+        
     else
         result=$?
         FAILED_MODULES+=("$module_name")
-        log_error "Module failed: $module_name (exit code: $result)"
+        log_error "MODULE FAILED: $module_name (exit code: $result)"
         
-        # Attempt recovery
-        if recover_from_module_failure "$module_name"; then
-            log_info "Recovery successful for module: $module_name"
+        # Attempt tactical recovery
+        if attempt_module_recovery "$module_name" "$result"; then
+            log_info "RECOVERY SUCCESSFUL: $module_name"
             result=0
+        else
+            log_error "RECOVERY FAILED: $module_name - MISSION ABORT"
         fi
     fi
     
     return $result
 }
 
-# Execute modules in parallel where possible
-execute_parallel_modules() {
-    local -a module_group=("$@")
-    local pids=()
-    local failed=false
+# Update build progress based on completed modules
+update_build_progress() {
+    local module_name="$1"
     
-    log_info "Executing ${#module_group[@]} modules in parallel (max jobs: $MAX_PARALLEL_JOBS)"
-    
-    # Start modules
-    for module in "${module_group[@]}"; do
-        while [[ $(jobs -r | wc -l) -ge $MAX_PARALLEL_JOBS ]]; do
-            sleep 0.1
-        done
-        
-        execute_module "$module" &
-        pids+=($!)
-    done
-    
-    # Wait for completion
-    for pid in "${pids[@]}"; do
-        if ! wait "$pid"; then
-            failed=true
+    # Calculate progress based on module execution order
+    for percentage in $(echo "${!MODULE_EXECUTION_ORDER[@]}" | tr ' ' '\n' | sort -n); do
+        if [[ "${MODULE_EXECUTION_ORDER[$percentage]}" == "$module_name" ]]; then
+            BUILD_PROGRESS=$percentage
+            log_info "BUILD PROGRESS: ${BUILD_PROGRESS}% - $module_name complete"
+            break
         fi
     done
+}
+
+#=============================================================================
+# MODULE RECOVERY PROTOCOLS - CASUALTY EVACUATION
+#=============================================================================
+
+attempt_module_recovery() {
+    local module_name="$1"
+    local error_code="$2"
     
-    [[ "$failed" == "false" ]]
+    log_warn "ATTEMPTING RECOVERY: $module_name (error: $error_code)"
+    
+    case "$module_name" in
+        "dependency-validation")
+            log_info "RECOVERY: Installing missing dependencies"
+            if [[ -f "$REPO_ROOT/install_all_dependencies.sh" ]]; then
+                bash "$REPO_ROOT/install_all_dependencies.sh"
+                return $?
+            fi
+            ;;
+        "mmdebootstrap/orchestrator")
+            log_info "RECOVERY: Attempting debootstrap fallback"
+            # Could implement debootstrap fallback here
+            return 1
+            ;;
+        "kernel-compilation")
+            log_info "RECOVERY: Cleaning kernel build artifacts"
+            if [[ -d "$BUILD_ROOT/chroot" ]]; then
+                chroot "$BUILD_ROOT/chroot" /bin/bash -c "make clean" 2>/dev/null || true
+            fi
+            return 1
+            ;;
+        *)
+            log_warn "NO RECOVERY PROTOCOL: $module_name"
+            return 1
+            ;;
+    esac
 }
 
 #=============================================================================
 # BUILD ORCHESTRATION - MISSION CONTROL
 #=============================================================================
 
-# Main build orchestration
 orchestrate_build() {
     local build_type="${1:-standard}"
     local custom_config="${2:-}"
@@ -184,283 +309,376 @@ orchestrate_build() {
     log_info "=== BUILD ORCHESTRATION START ==="
     log_info "Build type: $build_type"
     log_info "Configuration: ${custom_config:-default}"
+    log_info "Modules to execute: ${#MODULE_EXECUTION_ORDER[@]}"
     
-    # Initialize build environment
+    # CRITICAL: Install host dependencies first
+    log_info "Installing host system dependencies..."
+    if [[ -f "$REPO_ROOT/install_all_dependencies.sh" ]]; then
+        log_info "Running install_all_dependencies.sh to ensure build tools are available"
+        bash "$REPO_ROOT/install_all_dependencies.sh" || {
+            log_error "Failed to install host dependencies - cannot proceed"
+            return 1
+        }
+        log_success "Host dependencies installed"
+    else
+        log_warn "install_all_dependencies.sh not found - assuming dependencies are installed"
+    fi
+    
     initialize_build_state
     
-    # Validate environment
-    if ! validate_build_environment; then
-        log_error "Environment validation failed"
+    # Execute modules in tactical sequence
+    local total_modules=${#MODULE_EXECUTION_ORDER[@]}
+    local current_module=0
+    
+    for percentage in $(echo "${!MODULE_EXECUTION_ORDER[@]}" | tr ' ' '\n' | sort -n); do
+        local module_name="${MODULE_EXECUTION_ORDER[$percentage]}"
+        ((current_module++))
+        
+        log_info "ENGAGING TARGET [$current_module/$total_modules]: $module_name ($percentage%)"
+        
+        if execute_module "$module_name"; then
+            log_success "TARGET SECURED: $module_name"
+        else
+            log_error "TARGET FAILED: $module_name - MISSION ABORT"
+            generate_failure_report "module_execution" 1 "$module_name"
+            return 1
+        fi
+        
+        # Checkpoint after each module
+        create_checkpoint "progress_${percentage}" "$BUILD_ROOT"
+    done
+    
+    # Mission completion
+    BUILD_STATUS="COMPLETED"
+    local build_end_time=$(date +%s)
+    local total_duration=$((build_end_time - BUILD_START_TIME))
+    
+    log_success "=== MISSION ACCOMPLISHED ==="
+    log_success "Total duration: ${total_duration}s"
+    log_success "Modules completed: ${#COMPLETED_MODULES[@]}"
+    log_success "Modules failed: ${#FAILED_MODULES[@]}"
+    
+    # Generate mission report
+    generate_mission_report "$total_duration"
+    
+    return 0
+}
+
+#=============================================================================
+# VALIDATION & VERIFICATION - INTELLIGENCE ASSESSMENT
+#=============================================================================
+
+validate_environment() {
+    log_info "=== ENVIRONMENT VALIDATION ==="
+    
+    local validation_errors=0
+    
+    # Validate required directories
+    log_info "Validating directory structure..."
+    for dir in "$MODULE_DIR" "$PYTHON_DIR" "$CONFIG_DIR"; do
+        if [[ ! -d "$dir" ]]; then
+            log_error "Missing directory: $dir"
+            ((validation_errors++))
+        else
+            log_debug "Found directory: $dir"
+        fi
+    done
+    
+    # Validate required scripts
+    log_info "Validating required scripts..."
+    local required_scripts=(
+        "install_all_dependencies.sh"
+        "deploy_persist.sh"
+        "quick-setup.sh"
+    )
+    
+    for script in "${required_scripts[@]}"; do
+        if [[ ! -f "$REPO_ROOT/$script" ]]; then
+            log_warn "Missing optional script: $script"
+        else
+            log_debug "Found script: $script"
+        fi
+    done
+    
+    # Validate modules
+    log_info "Validating build modules..."
+    for percentage in "${!MODULE_EXECUTION_ORDER[@]}"; do
+        local module_name="${MODULE_EXECUTION_ORDER[$percentage]}"
+        local module_script=""
+        
+        if [[ "$module_name" == *"/"* ]]; then
+            module_script="$MODULE_DIR/${module_name}.sh"
+        else
+            module_script="$MODULE_DIR/${module_name}.sh"
+        fi
+        
+        if [[ ! -f "$module_script" ]]; then
+            log_error "Missing module: $module_script"
+            ((validation_errors++))
+        else
+            log_debug "Found module: $module_script"
+        fi
+    done
+    
+    # Check Python orchestrator
+    if [[ -f "$PYTHON_DIR/mmdebstrap_orchestrator.py" ]]; then
+        log_success "Python orchestrator available"
+    else
+        log_warn "Python orchestrator not found"
+    fi
+    
+    # System requirements
+    log_info "Validating system requirements..."
+    local required_commands=("debootstrap" "mksquashfs" "xorriso" "chroot" "mount")
+    
+    for cmd in "${required_commands[@]}"; do
+        if ! command -v "$cmd" >/dev/null 2>&1; then
+            log_error "Missing command: $cmd"
+            ((validation_errors++))
+        else
+            log_debug "Found command: $cmd"
+        fi
+    done
+    
+    if [[ $validation_errors -gt 0 ]]; then
+        log_error "Environment validation failed with $validation_errors errors"
         return 1
     fi
     
-    # Execute build phases
-    local phase_result=0
-    for percentage in $(echo "${!MODULE_EXECUTION_ORDER[@]}" | tr ' ' '\n' | sort -n); do
-        local module="${MODULE_EXECUTION_ORDER[$percentage]}"
-        
-        BUILD_PHASE="$module"
-        BUILD_PROGRESS=$percentage
-        
-        log_info "=== PHASE: $module ($percentage% complete) ==="
-        
-        # Update progress file
-        update_build_progress "$percentage" "$module"
-        
-        # Execute module
-        if ! execute_module "$module"; then
-            phase_result=1
-            
-            if [[ "${FORCE_CONTINUE:-false}" != "true" ]]; then
-                log_error "Build halted at phase: $module"
-                break
-            else
-                log_warning "Continuing despite failure (FORCE_CONTINUE=true)"
-            fi
-        fi
-        
-        # Checkpoint after each major phase
-        if [[ $((percentage % 20)) -eq 0 ]]; then
-            create_checkpoint "phase_${percentage}" "$BUILD_ROOT"
-        fi
-    done
-    
-    # Finalize build
-    if [[ $phase_result -eq 0 ]]; then
-        BUILD_STATUS="SUCCESS"
-        log_success "=== BUILD ORCHESTRATION COMPLETE ==="
-    else
-        BUILD_STATUS="FAILED"
-        log_error "=== BUILD ORCHESTRATION FAILED ==="
-    fi
-    
-    # Generate build report
-    generate_build_report
-    
-    return $phase_result
+    log_success "Environment validation passed"
+    return 0
 }
 
 #=============================================================================
-# RECOVERY MECHANISMS - CASUALTY MANAGEMENT
+# REPORTING & INTELLIGENCE - AFTER ACTION REPORTS
 #=============================================================================
 
-# Recover from module failure
-recover_from_module_failure() {
-    local failed_module="$1"
-    local recovery_attempts=0
-    local max_attempts=3
+generate_mission_report() {
+    local duration="$1"
+    local report_file="$BUILD_ROOT/mission-report.txt"
     
-    log_warning "Attempting recovery for module: $failed_module"
-    
-    while [[ $recovery_attempts -lt $max_attempts ]]; do
-        recovery_attempts=$((recovery_attempts + 1))
-        log_info "Recovery attempt $recovery_attempts/$max_attempts"
-        
-        # Try to recover from last checkpoint
-        local last_checkpoint=$(find "$CHECKPOINT_DIR" -name "*.checkpoint" | sort | tail -1)
-        if [[ -n "$last_checkpoint" ]]; then
-            log_info "Recovering from checkpoint: $(basename "$last_checkpoint")"
-            
-            if recover_from_checkpoint "$(basename "$last_checkpoint" .checkpoint)" "$BUILD_ROOT"; then
-                # Retry module execution
-                if execute_module "$failed_module"; then
-                    log_success "Recovery successful after $recovery_attempts attempts"
-                    return 0
-                fi
-            fi
-        fi
-        
-        # Exponential backoff
-        sleep $((2 ** recovery_attempts))
-    done
-    
-    log_error "Recovery failed after $max_attempts attempts"
-    return 1
-}
+    cat > "$report_file" <<EOF
+=== BUILD ORCHESTRATION MISSION REPORT ===
+Generated: $(date -Iseconds)
+Classification: $CLASSIFICATION
+Script: $SCRIPT_NAME v$SCRIPT_VERSION
 
-#=============================================================================
-# VALIDATION FUNCTIONS - RECONNAISSANCE
-#=============================================================================
+MISSION PARAMETERS:
+- Build Root: $BUILD_ROOT
+- Total Duration: ${duration}s
+- Modules Executed: ${#MODULE_EXECUTION_ORDER[@]}
 
-# Validate build environment
-validate_build_environment() {
-    log_info "Validating build environment..."
-    
-    local validation_failed=false
-    
-    # Check required commands
-    local required_commands=(
-        "systemd-nspawn"
-        "debootstrap"
-        "mksquashfs"
-        "xorriso"
-        "git"
-    )
-    
-    for cmd in "${required_commands[@]}"; do
-        if ! command -v "$cmd" &>/dev/null; then
-            log_error "Missing required command: $cmd"
-            validation_failed=true
-        fi
-    done
-    
-    # Check disk space (minimum 20GB)
-    local available_space=$(df "$BUILD_ROOT" --output=avail -B G | tail -1 | tr -d 'G')
-    if [[ $available_space -lt 20 ]]; then
-        log_error "Insufficient disk space: ${available_space}GB available (20GB required)"
-        validation_failed=true
-    fi
-    
-    # Check memory (minimum 4GB)
-    local available_memory=$(free -g | awk '/^Mem:/{print $7}')
-    if [[ $available_memory -lt 4 ]]; then
-        log_warning "Low memory: ${available_memory}GB available (4GB recommended)"
-    fi
-    
-    # Check module directory
-    if [[ ! -d "$MODULE_DIR" ]]; then
-        log_error "Module directory not found: $MODULE_DIR"
-        validation_failed=true
-    fi
-    
-    # Check module scripts
-    local module_count=$(find "$MODULE_DIR" -name "*.sh" -type f | wc -l)
-    if [[ $module_count -eq 0 ]]; then
-        log_error "No module scripts found in: $MODULE_DIR"
-        validation_failed=true
-    else
-        log_info "Found $module_count module scripts"
-    fi
-    
-    [[ "$validation_failed" == "false" ]]
-}
+ENGAGEMENT RESULTS:
+- Completed Modules: ${#COMPLETED_MODULES[@]}
+- Failed Modules: ${#FAILED_MODULES[@]}
+- Skipped Modules: ${#SKIPPED_MODULES[@]}
 
-#=============================================================================
-# PROGRESS TRACKING - BATTLEFIELD AWARENESS
-#=============================================================================
-
-# Update build progress
-update_build_progress() {
-    local percentage="$1"
-    local phase="$2"
-    local current_time=$(date +%s)
-    local elapsed=$((current_time - BUILD_START_TIME))
-    
-    # Calculate ETA
-    local eta="unknown"
-    if [[ $percentage -gt 0 ]]; then
-        local total_estimated=$((elapsed * 100 / percentage))
-        local remaining=$((total_estimated - elapsed))
-        eta="$(date -u -d @${remaining} +'%H:%M:%S')"
-    fi
-    
-    # Write progress file
-    cat > "$BUILD_ROOT/.progress" <<EOF
-{
-    "timestamp": "$current_time",
-    "percentage": $percentage,
-    "phase": "$phase",
-    "status": "$BUILD_STATUS",
-    "elapsed_seconds": $elapsed,
-    "eta": "$eta",
-    "completed_modules": ${#COMPLETED_MODULES[@]},
-    "failed_modules": ${#FAILED_MODULES[@]}
-}
+MODULE PERFORMANCE:
 EOF
-    
-    # Log progress
-    log_info "Progress: $percentage% - Phase: $phase - ETA: $eta"
-}
 
-#=============================================================================
-# REPORTING - AFTER ACTION REPORT
-#=============================================================================
-
-# Generate build report
-generate_build_report() {
-    local report_file="$BUILD_ROOT/build-report-$(date +%Y%m%d-%H%M%S).txt"
-    local current_time=$(date +%s)
-    local total_duration=$((current_time - BUILD_START_TIME))
+    for metric in "${MODULE_METRICS[@]}"; do
+        echo "- $metric" >> "$report_file"
+    done
     
-    {
-        echo "==================================================================="
-        echo "BUILD ORCHESTRATION REPORT"
-        echo "==================================================================="
-        echo "Build Status: $BUILD_STATUS"
-        echo "Start Time: $(date -d @$BUILD_START_TIME -Iseconds)"
-        echo "End Time: $(date -d @$current_time -Iseconds)"
-        echo "Total Duration: $(date -u -d @${total_duration} +'%H:%M:%S')"
-        echo ""
-        echo "=== MODULE EXECUTION SUMMARY ==="
-        echo "Completed Modules: ${#COMPLETED_MODULES[@]}"
-        for module in "${COMPLETED_MODULES[@]}"; do
-            echo "  ✓ $module"
+    if [[ ${#FAILED_MODULES[@]} -gt 0 ]]; then
+        echo -e "\nFAILED MODULES:" >> "$report_file"
+        for failed in "${FAILED_MODULES[@]}"; do
+            echo "- $failed" >> "$report_file"
         done
-        echo ""
-        echo "Failed Modules: ${#FAILED_MODULES[@]}"
-        for module in "${FAILED_MODULES[@]}"; do
-            echo "  ✗ $module"
-        done
-        echo ""
-        echo "=== MODULE PERFORMANCE METRICS ==="
-        for metric in "${MODULE_METRICS[@]}"; do
-            echo "  $metric"
-        done
-        echo ""
-        echo "=== RESOURCE UTILIZATION ==="
-        echo "Peak Memory Usage: $(grep VmPeak /proc/$$/status | awk '{print $2/1024 " MB"}')"
-        echo "CPU Time: $(ps -p $$ -o cputime= | tr -d ' ')"
-        echo "Disk Usage: $(du -sh "$BUILD_ROOT" 2>/dev/null | cut -f1)"
-        echo ""
-        echo "=== CHECKPOINTS CREATED ==="
-        find "$CHECKPOINT_DIR" -name "*.checkpoint" -type f | while read checkpoint; do
-            echo "  $(basename "$checkpoint" .checkpoint) - $(stat -c %y "$checkpoint" | cut -d'.' -f1)"
-        done
-        echo "==================================================================="
-    } > "$report_file"
-    
-    log_success "Build report generated: $report_file"
-    
-    # Also output summary to console
-    if [[ "$BUILD_STATUS" == "SUCCESS" ]]; then
-        log_success "Build completed successfully in $(date -u -d @${total_duration} +'%H:%M:%S')"
-    else
-        log_error "Build failed after $(date -u -d @${total_duration} +'%H:%M:%S')"
-        log_error "Failed modules: ${FAILED_MODULES[*]}"
     fi
+    
+    echo -e "\nMISSION STATUS: ${BUILD_STATUS}" >> "$report_file"
+    echo "END REPORT" >> "$report_file"
+    
+    log_success "Mission report generated: $report_file"
+}
+
+generate_failure_report() {
+    local context="$1"
+    local error_code="$2" 
+    local details="$3"
+    local failure_file="$BUILD_ROOT/failure-report.txt"
+    
+    cat > "$failure_file" <<EOF
+=== BUILD FAILURE REPORT ===
+Generated: $(date -Iseconds)
+Context: $context
+Error Code: $error_code
+Details: $details
+
+BUILD STATE AT FAILURE:
+- Phase: $BUILD_PHASE
+- Progress: ${BUILD_PROGRESS}%
+- Status: $BUILD_STATUS
+
+COMPLETED MODULES: ${#COMPLETED_MODULES[@]}
+FAILED MODULES: ${#FAILED_MODULES[@]}
+
+TACTICAL RECOMMENDATION:
+1. Review module logs in $LOG_DIR
+2. Check system resources and dependencies
+3. Verify module script integrity
+4. Consider partial recovery with --continue flag
+
+END FAILURE REPORT
+EOF
+
+    log_error "Failure report generated: $failure_file"
 }
 
 #=============================================================================
-# MAIN EXECUTION - MISSION LAUNCH
+# COMMAND INTERFACE - TACTICAL OPERATIONS
+#=============================================================================
+
+show_help() {
+    cat <<EOF
+$SCRIPT_NAME v$SCRIPT_VERSION - Build Orchestration Command
+
+USAGE:
+    $0 [COMMAND] [OPTIONS]
+
+COMMANDS:
+    build [TYPE]     Execute full build orchestration
+                     TYPE: standard (default), minimal, development
+    
+    validate         Validate environment and modules
+    
+    status           Show current build status
+    
+    clean            Clean build directories
+    
+    help             Show this help message
+
+OPTIONS:
+    --build-root DIR    Set build directory (default: /tmp/build)
+    --debug            Enable debug output
+    --dry-run          Show what would be executed
+    --continue         Continue from last checkpoint
+    --parallel N       Set max parallel jobs (default: $(nproc))
+
+EXAMPLES:
+    $0 build                    # Standard build
+    $0 build development        # Development build  
+    $0 validate                 # Environment check
+    $0 clean                    # Clean build artifacts
+    $0 --debug build            # Debug mode build
+
+CLASSIFICATION: $CLASSIFICATION
+VERSION: $SCRIPT_VERSION
+EOF
+}
+
+#=============================================================================
+# MAIN EXECUTION - COMMAND DISPATCH
 #=============================================================================
 
 main() {
-    local action="${1:-build}"
-    shift || true
+    local command="${1:-help}"
+    local build_type="${2:-standard}"
     
-    case "$action" in
+    # Process global options
+    while [[ $# -gt 0 ]]; do
+        case $1 in
+            --build-root)
+                BUILD_ROOT="$2"
+                shift 2
+                ;;
+            --debug)
+                export DEBUG=1
+                set -x
+                shift
+                ;;
+            --dry-run)
+                export DRY_RUN=1
+                shift
+                ;;
+            --continue)
+                export CONTINUE=1
+                shift
+                ;;
+            --parallel)
+                MAX_PARALLEL_JOBS="$2"
+                shift 2
+                ;;
+            -*)
+                log_error "Unknown option: $1"
+                ;;
+            *)
+                break
+                ;;
+        esac
+    done
+    
+    # Execute command
+    case "$command" in
         build)
-            orchestrate_build "$@"
+            if validate_environment; then
+                orchestrate_build "$build_type"
+            else
+                log_error "Environment validation failed - cannot proceed with build"
+            fi
             ;;
         validate)
-            validate_build_environment
+            validate_environment
             ;;
-        report)
-            generate_build_report
+        status)
+            show_build_status
             ;;
         clean)
-            log_info "Cleaning build directory: $BUILD_ROOT"
-            rm -rf "$BUILD_ROOT"
+            clean_build_artifacts
+            ;;
+        help|--help|-h)
+            show_help
             ;;
         *)
-            log_error "Unknown action: $action"
-            echo "Usage: $0 {build|validate|report|clean} [options]"
+            log_error "Unknown command: $command"
+            show_help
             exit 1
             ;;
     esac
 }
 
-# Execute if not sourced
-if [[ "${BASH_SOURCE[0]}" == "${0}" ]]; then
-    main "$@"
+#=============================================================================
+# UTILITY FUNCTIONS - SUPPORT OPERATIONS
+#=============================================================================
+
+show_build_status() {
+    if [[ -f "$CHECKPOINT_DIR/build_start" ]]; then
+        log_info "Build in progress or completed"
+        log_info "Build root: $BUILD_ROOT"
+        log_info "Progress: ${BUILD_PROGRESS}%"
+        log_info "Status: $BUILD_STATUS"
+        
+        if [[ -f "$BUILD_ROOT/mission-report.txt" ]]; then
+            log_info "Mission report available: $BUILD_ROOT/mission-report.txt"
+        fi
+    else
+        log_info "No build in progress"
+    fi
+}
+
+clean_build_artifacts() {
+    log_info "Cleaning build artifacts..."
+    
+    if [[ -d "$BUILD_ROOT" ]]; then
+        log_warn "Removing build directory: $BUILD_ROOT"
+        rm -rf "$BUILD_ROOT"
+        log_success "Build artifacts cleaned"
+    else
+        log_info "No build artifacts to clean"
+    fi
+}
+
+#=============================================================================
+# MISSION EXECUTION - TACTICAL DEPLOYMENT
+#=============================================================================
+
+# Verify we're running as root for build operations
+if [[ "$1" == "build" ]] && [[ $EUID -ne 0 ]]; then
+    log_error "Build operations require root privileges"
+    log_info "Execute: sudo $0 $*"
+    exit 1
 fi
+
+# Execute main command
+main "$@"
