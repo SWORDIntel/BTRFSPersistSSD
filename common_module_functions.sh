@@ -6,11 +6,11 @@ set -eEuo pipefail
 IFS=$'\n\t'
 
 # Configuration
-readonly SCRIPT_VERSION="${SCRIPT_VERSION:-1.0.0}"
-readonly LOG_DIR="${LOG_DIR:-/var/log/tactical-ops}"
-readonly STATE_DIR="${STATE_DIR:-/var/lib/tactical-state}"
-readonly LOCK_DIR="${LOCK_DIR:-/var/lock}"
-readonly CHECKPOINT_DIR="${CHECKPOINT_DIR:-/var/lib/checkpoints}"
+SCRIPT_VERSION="${SCRIPT_VERSION:-1.0.0}"
+LOG_DIR="${LOG_DIR:-/var/log/tactical-ops}"
+STATE_DIR="${STATE_DIR:-/var/lib/tactical-state}"
+LOCK_DIR="${LOCK_DIR:-/var/lock}"
+CHECKPOINT_DIR="${CHECKPOINT_DIR:-/var/lib/checkpoints}"
 
 # ANSI Colors - Combat Display
 readonly RED='\033[0;31m'
@@ -24,9 +24,9 @@ readonly NC='\033[0m'
 
 # Initialize logging
 mkdir -p "$LOG_DIR" "$STATE_DIR" "$CHECKPOINT_DIR"
-readonly LOG_FILE="$LOG_DIR/$(basename "$0" .sh)-$(date +%Y%m%d-%H%M%S).log"
-readonly STATE_FILE="$STATE_DIR/$(basename "$0" .sh).state"
-readonly LOCK_FILE="$LOCK_DIR/$(basename "$0" .sh).lock"
+LOG_FILE="${LOG_FILE:-$LOG_DIR/$(basename "$0" .sh)-$(date +%Y%m%d-%H%M%S).log}"
+STATE_FILE="${STATE_FILE:-$STATE_DIR/$(basename "$0" .sh).state}"
+LOCK_FILE="${LOCK_FILE:-$LOCK_DIR/$(basename "$0" .sh).lock}"
 
 #=============================================================================
 # TACTICAL LOGGING SYSTEM
