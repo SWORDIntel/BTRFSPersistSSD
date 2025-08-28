@@ -278,7 +278,24 @@ execute_module() {
     fi
     
     # Execute module with simple redirection to avoid process duplication
-    if DEBUG=1 VERBOSE=1 timeout "$BUILD_TIMEOUT" bash -x "$module_script" "$BUILD_ROOT" >> "$module_log" 2>&1; then
+    # Special handling for mmdebstrap to prevent timeout/process issues
+    if [[ "$module_name" == "mmdebootstrap/orchestrator" ]]; then
+        # Run mmdebstrap without timeout to prevent signal/chroot issues
+        if DEBUG=1 VERBOSE=1 bash "$module_script" "$BUILD_ROOT" >> "$module_log" 2>&1; then
+            result=0
+        else
+            result=$?
+        fi
+    else
+        # Use timeout for other modules
+        if DEBUG=1 VERBOSE=1 timeout "$BUILD_TIMEOUT" bash "$module_script" "$BUILD_ROOT" >> "$module_log" 2>&1; then
+            result=0
+        else
+            result=$?
+        fi
+    fi
+    
+    if [[ $result -eq 0 ]]; then
         local module_end_time=$(date +%s)
         local duration=$((module_end_time - module_start_time))
         
