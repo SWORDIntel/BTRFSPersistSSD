@@ -75,10 +75,10 @@ log_info "Creating Ubuntu Noble chroot with mmdebstrap..."
 log_info "This may take 5-10 minutes..."
 
 # Create the chroot with mmdebstrap
-# Using standard variant with full GNOME desktop environment
+# Using standard variant with essential packages only (desktop packages added later)
 if mmdebstrap \
     --variant=standard \
-    --include=apt-utils,systemd,systemd-sysv,dbus,sudo,curl,wget,ca-certificates,ubuntu-desktop-minimal,gnome-shell,gdm3,network-manager,firefox,nautilus,gedit,gnome-terminal \
+    --include=apt-utils,systemd,systemd-sysv,dbus,sudo,curl,wget,ca-certificates,locales \
     --components=main,universe,restricted,multiverse \
     --verbose \
     noble \
