@@ -197,7 +197,185 @@ sudo apt install git
 # Everything else is installed automatically
 ```
 
-### Basic Usage
+## 🚀 Build Commands
+
+### **Quick Validation (Run First)**
+```bash
+# Check system readiness without full build
+./validate-build-system.sh
+```
+
+### **Setup Commands**
+
+#### **1. Setup RAM Disk for Fast Building (Recommended)**
+```bash
+# Create 32GB tmpfs for much faster builds
+sudo ./setup-tmpfs-build.sh
+
+# Verify tmpfs is mounted
+df -h /tmp/build
+```
+
+#### **2. Install Build Dependencies (If Needed)**
+```bash
+# Only if mmdebstrap is missing
+sudo apt-get update
+sudo apt-get install mmdebstrap
+```
+
+### **Main Build Commands**
+
+#### **Full ISO Build**
+```bash
+# Standard build using tmpfs (fastest)
+sudo BUILD_ROOT=/tmp/build ./build-orchestrator.sh build
+
+# Alternative: Build to disk (slower but more space)
+sudo BUILD_ROOT=/home/build ./build-orchestrator.sh build
+
+# With specific profile
+sudo BUILD_ROOT=/tmp/build BUILD_PROFILE=development ./build-orchestrator.sh build
+```
+
+#### **Build with Recovery Options**
+```bash
+# Build with checkpoints enabled (recommended for testing)
+sudo BUILD_ROOT=/tmp/build CHECKPOINT_INTERVAL=300 ./build-orchestrator.sh build
+
+# Resume from checkpoint if build fails
+sudo ./checkpoint-manager.sh resume latest
+sudo BUILD_ROOT=/tmp/build ./build-orchestrator.sh build
+```
+
+### **Deployment Commands**
+
+#### **Full Build + Deploy to USB/SSD**
+```bash
+# Complete workflow: build ISO and deploy to device
+sudo BUILD_ROOT=/tmp/build ./unified-deploy.sh full /dev/sda
+
+# Deploy with custom ISO file
+sudo ./unified-deploy.sh deploy /dev/sda --iso-file /tmp/build/ubuntu.iso
+```
+
+#### **Deploy Existing ISO**
+```bash
+# If you already have ubuntu.iso
+sudo ./deploy_persist.sh /dev/sda /path/to/ubuntu.iso
+```
+
+### **Build Profiles Available**
+
+```bash
+# Minimal system
+sudo BUILD_ROOT=/tmp/build BUILD_PROFILE=minimal ./build-orchestrator.sh build
+
+# Development system (includes dev tools)
+sudo BUILD_ROOT=/tmp/build BUILD_PROFILE=development ./build-orchestrator.sh build
+
+# ZFS-optimized system
+sudo BUILD_ROOT=/tmp/build BUILD_PROFILE=zfs_optimized ./build-orchestrator.sh build
+
+# Security-focused system
+sudo BUILD_ROOT=/tmp/build BUILD_PROFILE=security ./build-orchestrator.sh build
+```
+
+### **Build Monitoring**
+
+#### **Check Build Progress**
+```bash
+# Monitor build logs in real-time
+tail -f /tmp/build/build-*.log
+
+# Check current module
+cat /tmp/build/.checkpoints/current_module
+
+# View module progress
+ls -la /tmp/build/.checkpoints/
+```
+
+#### **Build Status**
+```bash
+# Quick status check
+./checkpoint-manager.sh status
+
+# Detailed module status
+cat /tmp/build/.checkpoints/completed_modules
+```
+
+### **Recovery Commands**
+
+#### **If Build Fails**
+```bash
+# Emergency recovery
+sudo ./build-recovery.sh
+
+# Clean and restart
+sudo rm -rf /tmp/build
+sudo ./setup-tmpfs-build.sh
+sudo BUILD_ROOT=/tmp/build ./build-orchestrator.sh build
+```
+
+#### **Git Repository Maintenance**
+```bash
+# Clean git repository if needed
+sudo ./git-cleanup.sh
+```
+
+### **Expected Output Locations**
+
+```bash
+# Final ISO file
+/tmp/build/ubuntu.iso
+
+# Build logs
+/tmp/build/build-*.log
+/tmp/build/.logs/
+
+# Checkpoints
+/tmp/build/.checkpoints/
+
+# Chroot (during build)
+/tmp/build/chroot/
+```
+
+### **Build Time Estimates**
+
+- **Chroot Creation (20-25%)**: 5-10 minutes
+- **Package Installation (40-60%)**: 15-30 minutes  
+- **System Configuration (60-80%)**: 10-15 minutes
+- **ISO Assembly (80-95%)**: 5-10 minutes
+- **Total Build Time**: 45-75 minutes (depending on network and disk speed)
+
+### **Quick Start (Recommended)**
+
+```bash
+# 1. Validate system
+./validate-build-system.sh
+
+# 2. Setup fast storage
+sudo ./setup-tmpfs-build.sh
+
+# 3. Build ISO
+sudo BUILD_ROOT=/tmp/build ./build-orchestrator.sh build
+
+# 4. Deploy to USB (optional)
+sudo ./unified-deploy.sh deploy /dev/sdX --iso-file /tmp/build/ubuntu.iso
+```
+
+### **Environment Variables**
+
+```bash
+# Common build customizations
+export BUILD_ROOT="/tmp/build"           # Build location
+export BUILD_PROFILE="development"       # Build type
+export BUILD_SUITE="noble"              # Ubuntu version
+export BUILD_ARCH="amd64"               # Architecture
+export MAX_PARALLEL_JOBS="$(nproc)"     # CPU cores to use
+export BUILD_TIMEOUT="7200"             # 2 hour timeout
+```
+
+### Basic Usage (Legacy Commands)
 
 #### Full Build and Deploy
 ```bash
