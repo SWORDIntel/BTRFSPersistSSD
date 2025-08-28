@@ -1100,67 +1100,42 @@ EOF
 # Install Snap packages
 install_snap_packages() {
     log_info "Installing Snap packages..."
+    log_info "SKIPPING: Snap packages don't work reliably in chroot - will install post-boot"
     
-    # First ensure snapd is installed and running
+    # Just install snapd for post-boot snap installation
     chroot "$CHROOT_DIR" bash <<'EOF'
-# Install snapd if not already installed
+# Install snapd for post-boot use
 if ! command -v snap &>/dev/null; then
     apt-get install -y snapd
 fi
 
-# Enable snapd services
+# Enable snapd services for post-boot
 systemctl enable snapd
 systemctl enable snapd.socket
 
 # Create snap symlink
 ln -sf /var/lib/snapd/snap /snap
 
-# Wait for snapd to be ready
-sleep 5
-
-# Update snap to latest
-snap refresh core
+# NOTE: Skipping snap installs in chroot - they'll work after first boot
 EOF
     
-    log_info "Installing Telegram Desktop via Snap..."
-    chroot "$CHROOT_DIR" snap install telegram-desktop || log_warning "Failed to install telegram-desktop"
+    # Skip all snap installations - they don't work in chroot
+    log_info "Snap packages will be available for installation after first boot:"
+    log_info "  - sudo snap install telegram-desktop"
+    log_info "  - sudo snap install signal-desktop" 
+    log_info "  - sudo snap install sublime-text --classic"
+    log_info "  - sudo snap install code --classic"
+    log_info "  - sudo snap install discord"
     
-    log_info "Installing Signal Desktop via Snap..."
-    chroot "$CHROOT_DIR" snap install signal-desktop || log_warning "Failed to install signal-desktop"
-    
-    log_info "Installing Sublime Text via Snap (--classic)..."
-    chroot "$CHROOT_DIR" snap install sublime-text --classic || log_warning "Failed to install sublime-text"
-    
-    # Additional useful snap packages
-    log_info "Installing additional development snap packages..."
-    chroot "$CHROOT_DIR" bash <<'EOF'
-# VS Code
-snap install code --classic || echo "VS Code snap install failed"
-
-# Discord
-snap install discord || echo "Discord snap install failed"
-
-# Postman for API testing
-snap install postman || echo "Postman snap install failed"
-
-# Firefox (snap version)
-snap install firefox || echo "Firefox snap install failed"
-
-# Chromium
-snap install chromium || echo "Chromium snap install failed"
-
-# Node.js LTS
-snap install node --classic || echo "Node.js snap install failed"
-
-# kubectl for Kubernetes
-snap install kubectl --classic || echo "kubectl snap install failed"
-
-# Helm for Kubernetes
-snap install helm --classic || echo "Helm snap install failed"
-
-# Docker (additional snap version)
-snap install docker || echo "Docker snap install failed"
-EOF
+    # Skip the rest of snap installations
+    log_info "Additional snap packages available after first boot:"
+    log_info "  - sudo snap install postman"
+    log_info "  - sudo snap install firefox"
+    log_info "  - sudo snap install chromium"
+    log_info "  - sudo snap install node --classic"
+    log_info "  - sudo snap install kubectl --classic"
+    log_info "  - sudo snap install helm --classic"
+    log_info "  - sudo snap install docker"
     
     log_success "Snap packages installation completed"
 }
