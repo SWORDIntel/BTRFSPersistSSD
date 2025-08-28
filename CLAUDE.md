@@ -106,6 +106,12 @@ sudo ./checkpoint-manager.sh
 - **Fix**: Use `./restart-build.sh` - will resume from last checkpoint
 - **Prevention**: Run builds externally, use Claude only for monitoring
 
+### "Missing command: systemd-nspawn"
+- **Cause**: systemd-container package not installed on host
+- **Fix**: Install with `sudo apt-get install systemd-container`
+- **Prevention**: Use `./install_host_minimal.sh` which includes this dependency
+- **FIXED IN**: install_host_minimal.sh (systemd-container added to package list)
+
 ### "readonly variable" error
 - **Cause**: Variable declared as readonly being reassigned
 - **Fix**: Remove `readonly` keyword from variable declaration

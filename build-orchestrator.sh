@@ -277,8 +277,8 @@ execute_module() {
         log_info "MIL-SPEC MODE: Thermal throttling tolerance enabled - 100°C operational"
     fi
     
-    # Use process substitution instead of pipeline to avoid hanging
-    if DEBUG=1 VERBOSE=1 timeout "$BUILD_TIMEOUT" bash -x "$module_script" "$BUILD_ROOT" > >(tee -a "$module_log") 2>&1; then
+    # Execute module with simple redirection to avoid process duplication
+    if DEBUG=1 VERBOSE=1 timeout "$BUILD_TIMEOUT" bash -x "$module_script" "$BUILD_ROOT" >> "$module_log" 2>&1; then
         local module_end_time=$(date +%s)
         local duration=$((module_end_time - module_start_time))
         

@@ -25,6 +25,7 @@ echo -e "${YELLOW}Installing chroot creation tools...${NC}"
 sudo apt-get install -y \
     debootstrap \
     mmdebstrap \
+    systemd-container \
     squashfs-tools \
     xorriso \
     isolinux \
