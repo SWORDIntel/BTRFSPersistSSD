@@ -134,6 +134,7 @@ declare -A MODULE_EXECUTION_ORDER=(
     [15]="environment-setup" 
     [20]="mmdebootstrap/orchestrator"         # MMDEBootstrap integration
     [25]="stages-enhanced/03-mmdebstrap-bootstrap"  # Enhanced bootstrap stage
+    [28]="chroot-dependencies"      # Install all dependencies in chroot
     [30]="config-apply"              # Reapply configs to chroot
     [35]="zfs-builder"              # Build ZFS 2.3.4 from source if needed
     [38]="dell-cctk-builder"        # Build Dell CCTK and TPM2 tools

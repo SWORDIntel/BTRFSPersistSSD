@@ -215,11 +215,8 @@ execute_build() {
     log_info "=== EXECUTING BUILD PHASE ==="
     log_info "Build type: $build_type"
     
-    # Ensure dependencies are installed first
-    install_host_dependencies || {
-        log_error "Cannot proceed without dependencies"
-        return 1
-    }
+    # NOTE: Dependencies will be installed inside chroot after it's created
+    # The build-orchestrator will handle creating chroot first, then installing deps
     
     # Run build orchestrator
     if [[ -f "$SCRIPT_DIR/build-orchestrator.sh" ]]; then
@@ -383,8 +380,8 @@ main() {
             local target_device="$2"
             shift 2
             
-            # Install dependencies first
-            install_host_dependencies || exit 1
+            # NOTE: Dependencies will be installed in chroot during build
+            # Only validate basic host tools needed for build
             
             # Validate environment and device
             validate_environment || exit 1
