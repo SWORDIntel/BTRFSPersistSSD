@@ -324,13 +324,29 @@ show_real_time_status() {
     echo
     
     # Show last few lines from the most recent log
-    local latest_log=$(ls -t "$LOG_DIR"/*.log 2>/dev/null | head -1)
+    local latest_log=""
+    
+    # First try to find logs from the current build (modified in last 2 minutes)
+    if [[ -d "$LOG_DIR" ]]; then
+        latest_log=$(find "$LOG_DIR" -name "*.log" -mmin -2 -type f | head -1)
+    fi
+    
+    # Fallback to most recent log if no current logs found
+    if [[ -z "$latest_log" && -d "$LOG_DIR" ]]; then
+        latest_log=$(ls -t "$LOG_DIR"/*.log 2>/dev/null | head -1)
+    fi
+    
+    # Show main build log if no module logs
+    if [[ -z "$latest_log" ]]; then
+        latest_log="/tmp/build-output-$RESTART_COUNT.log"
+    fi
+    
     if [[ -f "$latest_log" ]]; then
         echo -e "${BOLD}Latest Log:${NC} $(basename "$latest_log")"
         echo
         tail -5 "$latest_log" 2>/dev/null | sed 's/^/  /' || echo "  No recent activity"
     else
-        echo "  No log files found"
+        echo "  No active build logs found"
     fi
     
     echo
@@ -349,13 +365,26 @@ restart_build() {
     ((RESTART_COUNT++)) || true
     log_monitor "${YELLOW}[RESTART $RESTART_COUNT/$MAX_RESTARTS]${NC} Starting build..."
     
-    # Start build in background with thermal resilience
+    # Reset start time for accurate elapsed time calculation
+    local start_time_file="$BUILD_ROOT/.build_start_time" 
+    local current_time=$(date +%s)
+    echo "$current_time" > "$start_time_file"
+    log_monitor "${CYAN}[TIMER]${NC} Build timer reset to $(date)"
+    
+    # Clear old logs from failed builds
+    if [[ -d "$LOG_DIR" ]]; then
+        local log_count=$(ls "$LOG_DIR"/*.log 2>/dev/null | wc -l)
+        sudo rm -f "$LOG_DIR"/*.log 2>/dev/null || true
+        log_monitor "${CYAN}[CLEANUP]${NC} Cleared $log_count old log files"
+    fi
+    
+    # Start build in background with thermal resilience  
     nohup sudo -E env BUILD_ROOT="$BUILD_ROOT" ./build-orchestrator.sh build \
         > /tmp/build-output-$RESTART_COUNT.log 2>&1 &
     
     local build_pid=$!
     echo $build_pid > /tmp/build-monitor.pid
-    log_monitor "${BLUE}[START]${NC} Build started with PID: $build_pid"
+    log_monitor "${BLUE}[START]${NC} Build started with PID: $build_pid (timer reset, logs cleared)"
 }
 
 monitor_loop() {

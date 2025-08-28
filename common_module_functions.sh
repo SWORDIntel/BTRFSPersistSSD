@@ -52,7 +52,7 @@ log_warning() {
 
 log_error() {
     log "$RED" "ERROR: $*"
-    return 1
+    # Don't return 1 here - let caller handle exit codes to prevent ERR trap recursion
 }
 
 log_debug() {
@@ -222,7 +222,7 @@ load_state() {
 #=============================================================================
 
 error_handler() {
-    # Prevent recursive error handling
+    # Prevent recursive error handling - NEVER use log_error here!
     trap - ERR
     set +e
     
@@ -230,7 +230,8 @@ error_handler() {
     local exit_code="${2:-$?}"
     local command="${3:-unknown}"
     
-    log_error "Command failed at line $line_no: $command (exit: $exit_code)" 2>/dev/null || echo "ERROR: Command failed at line $line_no" >&2
+    # Direct echo only - NO logging functions to prevent recursion
+    echo -e "${RED}[$(date +'%Y-%m-%d %H:%M:%S')]${NC} ERROR: Command failed at line $line_no: $command (exit: $exit_code)" | tee -a "$LOG_FILE" 2>/dev/null || echo "ERROR: Command failed at line $line_no" >&2
     
     # Save failure state (safely)
     save_state "{
@@ -243,14 +244,14 @@ error_handler() {
     # Cleanup (safely)
     release_lock 2>/dev/null || true
     
-    # Simple stack trace without recursion risk
-    log_error "Stack trace:" 2>/dev/null || echo "ERROR: Stack trace:" >&2
+    # Simple stack trace - direct echo only
+    echo -e "${RED}[$(date +'%Y-%m-%d %H:%M:%S')]${NC} ERROR: Stack trace:" | tee -a "$LOG_FILE" 2>/dev/null || echo "ERROR: Stack trace:" >&2
     local frame=0
     while caller $frame 2>/dev/null; do
         frame=$((frame + 1))
         [[ $frame -gt 10 ]] && break  # Prevent infinite loops
     done | while IFS= read -r line || break; do
-        log_error "  $line" 2>/dev/null || echo "  $line" >&2
+        echo -e "${RED}[$(date +'%Y-%m-%d %H:%M:%S')]${NC} ERROR:   $line" | tee -a "$LOG_FILE" 2>/dev/null || echo "  $line" >&2
     done
     
     exit $exit_code

@@ -111,6 +111,12 @@ sudo ./checkpoint-manager.sh
 - **Fix**: Remove `readonly` keyword from variable declaration
 - **FIXED IN**: common_module_functions.sh (lines 16-23)
 
+### "Recursive error handler loops"
+- **Cause**: `log_error` function calls `return 1`, triggering ERR trap recursively
+- **Fix**: Remove `return 1` from `log_error()` and avoid calling any log functions in `error_handler()`
+- **FIXED IN**: common_module_functions.sh (line 55, lines 224-258)
+- **SYMPTOMS**: Infinite error loops, build hangs with repeated "ERROR: Command failed at line 248"
+
 ### "Command not found: log_warn"
 - **Cause**: Wrong function name
 - **Fix**: Change to `log_warning`
