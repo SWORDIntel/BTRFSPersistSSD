@@ -48,11 +48,12 @@ log_info "Creating Ubuntu Noble chroot with mmdebstrap..."
 log_info "This may take 5-10 minutes..."
 
 # Create the chroot with mmdebstrap
-# Using standard variant with full KDE desktop environment
+# Using standard variant with full GNOME desktop environment
 if mmdebstrap \
     --variant=standard \
-    --include=apt-utils,systemd,systemd-sysv,dbus,sudo,curl,wget,ca-certificates,ubuntu-desktop-minimal,kde-plasma-desktop,plasma-workspace,sddm,network-manager,firefox,konsole,dolphin,kate,gwenview,spectacle,ark,kcalc,kwrite \
+    --include=apt-utils,systemd,systemd-sysv,dbus,sudo,curl,wget,ca-certificates,ubuntu-desktop-minimal,gnome-shell,gdm3,network-manager,firefox,nautilus,gedit,gnome-terminal \
     --components=main,universe,restricted,multiverse \
+    --verbose \
     noble \
     "$CHROOT_DIR" \
     http://archive.ubuntu.com/ubuntu; then

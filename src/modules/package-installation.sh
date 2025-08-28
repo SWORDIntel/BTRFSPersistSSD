@@ -35,6 +35,18 @@ NC='\033[0m'
 # COMPREHENSIVE PACKAGE LISTS
 #=============================================================================
 
+# CATEGORY 0: DESKTOP ENVIRONMENT (installed first)
+DESKTOP_PACKAGES=(
+    # GNOME Desktop Environment  
+    "ubuntu-desktop-minimal" "gnome-shell" "gdm3" "gnome-session"
+    "nautilus" "gedit" "gnome-terminal" "gnome-calculator"
+    "firefox" "network-manager" "gnome-settings-daemon"
+    "gnome-control-center" "gnome-system-monitor"
+    
+    # Additional useful apps
+    "evince" "eog" "totem" "cheese" "screenshot"
+)
+
 # CATEGORY 1: SYSTEM CORE & LIVE BOOT
 SYSTEM_CORE_PACKAGES=(
     # Live system requirements
