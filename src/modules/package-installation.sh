@@ -85,6 +85,11 @@ DESKTOP_PACKAGES=(
 
 # CATEGORY 1: SYSTEM CORE & LIVE BOOT
 SYSTEM_CORE_PACKAGES=(
+    # Essential system utilities from mmdebstrap suggestions
+    "bash-completion" "less" "manpages" "bzip2" "xz-utils"
+    "kbd" "sensible-utils" "glibc-doc" "uuid-runtime"
+    "libnss-nis" "libnss-nisplus" "rng-tools"
+    
     # Live system requirements
     "casper" "lupin-casper"
     "discover" "laptop-detect" "os-prober"
@@ -272,14 +277,14 @@ MULTIMEDIA_PACKAGES=(
     
     # Media players
     "vlc" "mpv" "totem" "rhythmbox" "audacious"
-    "clementine" "banshee" "amarok"
+    "clementine" "banshee"
     
     # Graphics and imaging
-    "gimp" "inkscape" "krita" "blender" "shotwell"
+    "gimp" "inkscape" "blender" "shotwell"
     "imagemagick" "graphicsmagick" "optipng" "jpegoptim"
     
     # Video editing
-    "kdenlive" "openshot" "pitivi" "obs-studio"
+    "openshot" "pitivi" "obs-studio"
     
     # Audio production
     "audacity" "ardour" "lmms" "hydrogen"
@@ -292,7 +297,7 @@ MULTIMEDIA_PACKAGES=(
 # CATEGORY 10: OFFICE & PRODUCTIVITY
 OFFICE_PACKAGES=(
     # Office suites
-    "libreoffice" "libreoffice-gtk3" "calligra"
+    "libreoffice" "libreoffice-gtk3"
     "abiword" "gnumeric" "focuswriter"
     
     # Email and communication

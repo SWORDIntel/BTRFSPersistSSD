@@ -77,6 +77,18 @@ sudo ./unified-deploy.sh deploy /dev/sda --iso-file /tmp/build/ubuntu.iso
 
 ### Recovery Commands
 ```bash
+# If build crashes (Claude session ends)
+./restart-build.sh
+
+# Monitor running build
+./monitor-build.sh monitor
+
+# Check build status
+./monitor-build.sh status
+
+# Kill stuck build
+./monitor-build.sh kill
+
 # If build gets stuck
 sudo ./build-recovery.sh
 
@@ -88,6 +100,11 @@ sudo ./checkpoint-manager.sh
 ```
 
 ## Common Issues and Fixes
+
+### "Claude session crashed during build"
+- **Cause**: Claude Code crashes on long-running operations
+- **Fix**: Use `./restart-build.sh` - will resume from last checkpoint
+- **Prevention**: Run builds externally, use Claude only for monitoring
 
 ### "readonly variable" error
 - **Cause**: Variable declared as readonly being reassigned
@@ -194,6 +211,7 @@ When working on this project:
 8. **Ensure** all dependencies go in the chroot
 9. **NEVER** run the full build inside Claude - it takes too long
 10. **DO NOT** execute `build-orchestrator.sh build` in Claude sessions
+11. **DO NOT** run full builds - Claude crashes on long operations, use external monitoring
 
 ## Multi-Claude Instance Collaboration Best Practices
 

@@ -133,18 +133,17 @@ declare -A MODULE_EXECUTION_ORDER=(
     [10]="dependency-validation"
     [15]="environment-setup" 
     [20]="mmdebootstrap/orchestrator"         # MMDEBootstrap integration - CREATES CHROOT
-    [25]="stages-enhanced/03-mmdebstrap-bootstrap"  # Enhanced bootstrap stage
+    [25]="package-installation"    # CRITICAL - Installs all packages
     [28]="chroot-dependencies"      # Install all dependencies in chroot
     [30]="config-apply"              # Apply configs to chroot AFTER it exists
     [35]="zfs-builder"              # Build ZFS 2.3.4 from source if needed
     [38]="dell-cctk-builder"        # Build Dell CCTK and TPM2 tools
     [40]="kernel-compilation"
-    [50]="package-installation"    # CRITICAL - Installs all packages
-    [60]="system-configuration"
+    [50]="system-configuration"
+    [60]="validation"
     [70]="initramfs-generation"
     [80]="iso-assembly"
-    [90]="validation"
-    [95]="finalization"
+    [90]="finalization"
 )
 
 # Mission state tracking
@@ -207,6 +206,11 @@ initialize_build_state() {
     
     # Create initial checkpoint
     create_checkpoint "build_start" "$BUILD_ROOT"
+    
+    # Create build tracking files
+    echo "$$" > "$BUILD_ROOT/.build.pid"
+    echo "$(date -Iseconds)" > "$BUILD_ROOT/.build.start"
+    echo "0%" > "$METRICS_DIR/progress.txt"
     
     log_success "Build state initialized - WEAPONS FREE"
 }
@@ -313,6 +317,12 @@ update_build_progress() {
     for percentage in $(echo "${!MODULE_EXECUTION_ORDER[@]}" | tr ' ' '\n' | sort -n); do
         if [[ "${MODULE_EXECUTION_ORDER[$percentage]}" == "$module_name" ]]; then
             BUILD_PROGRESS=$percentage
+            
+            # Write progress to file for external monitoring
+            mkdir -p "$METRICS_DIR"
+            echo "${BUILD_PROGRESS}%" > "$METRICS_DIR/progress.txt"
+            echo "$(date -Iseconds) $module_name ${BUILD_PROGRESS}%" >> "$METRICS_DIR/progress.log"
+            
             log_info "BUILD PROGRESS: ${BUILD_PROGRESS}% - $module_name complete"
             break
         fi
