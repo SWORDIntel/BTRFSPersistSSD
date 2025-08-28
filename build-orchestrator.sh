@@ -327,11 +327,9 @@ attempt_module_recovery() {
     
     case "$module_name" in
         "dependency-validation")
-            log_info "RECOVERY: Installing missing dependencies"
-            if [[ -f "$REPO_ROOT/install_all_dependencies.sh" ]]; then
-                bash "$REPO_ROOT/install_all_dependencies.sh"
-                return $?
-            fi
+            log_info "RECOVERY: Dependencies should be installed in chroot"
+            log_info "The chroot-dependencies module will handle this"
+            return 1
             ;;
         "mmdebootstrap/orchestrator")
             log_info "RECOVERY: Attempting debootstrap fallback"
@@ -365,18 +363,9 @@ orchestrate_build() {
     log_info "Configuration: ${custom_config:-default}"
     log_info "Modules to execute: ${#MODULE_EXECUTION_ORDER[@]}"
     
-    # CRITICAL: Install host dependencies first
-    log_info "Installing host system dependencies..."
-    if [[ -f "$REPO_ROOT/install_all_dependencies.sh" ]]; then
-        log_info "Running install_all_dependencies.sh to ensure build tools are available"
-        bash "$REPO_ROOT/install_all_dependencies.sh" || {
-            log_error "Failed to install host dependencies - cannot proceed"
-            return 1
-        }
-        log_success "Host dependencies installed"
-    else
-        log_warn "install_all_dependencies.sh not found - assuming dependencies are installed"
-    fi
+    # NOTE: Dependencies will be installed inside chroot after it's created
+    # The chroot-dependencies module handles this at 28% completion
+    log_info "Dependencies will be installed in chroot after creation"
     
     initialize_build_state
     
