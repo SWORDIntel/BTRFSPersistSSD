@@ -258,9 +258,9 @@ EOF
 }
 
 # REMOVED: setup_debootstrap function
-# Chroot creation is ONLY handled by mmdeboostrap module at 20%
+# Chroot creation is ONLY handled by mmdebstrap module at 20%
 # This module should NOT create chroot to avoid conflicts
-# The mmdeboostrap/orchestrator.sh module handles all bootstrap operations
+# The mmdebstrap/orchestrator.sh module handles all bootstrap operations
 
 configure_chroot_mounts() {
     log_info "Configuring chroot mount points..."
@@ -304,7 +304,7 @@ main() {
     # Setup build environment
     setup_build_directories || exit 1
     setup_apt_cache || exit 1
-    # NOTE: Chroot creation removed - handled by mmdeboostrap at 20%
+    # NOTE: Chroot creation removed - handled by mmdebstrap at 20%
     configure_chroot_mounts || exit 1
     setup_network_configuration || exit 1
     

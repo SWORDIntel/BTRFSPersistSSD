@@ -1,7 +1,7 @@
 #!/bin/bash
 #
 # MMDebootstrap Wrapper Module
-# Creates chroot using mmdeboostrap at 20% of build process
+# Creates chroot using mmdebstrap at 20% of build process
 #
 
 # Source common functions
@@ -15,7 +15,7 @@ REPO_ROOT="$(cd "$SCRIPT_DIR/../../.." && pwd)"
     }
 
 # Module configuration
-MODULE_NAME="mmdeboostrap-wrapper"
+MODULE_NAME="mmdebstrap-wrapper"
 MODULE_VERSION="1.0.0"
 BUILD_ROOT="${BUILD_ROOT:-${1:-/tmp/build}}"
 CHROOT_DIR="$BUILD_ROOT/chroot"
@@ -43,12 +43,12 @@ main() {
     mkdir -p "$(dirname "$CHROOT_DIR")"
     
     # Create checkpoint
-    create_checkpoint "mmdeboostrap_start" "$BUILD_ROOT"
+    create_checkpoint "mmdebstrap_start" "$BUILD_ROOT"
     
-    # Run mmdeboostrap
-    log_info "Running mmdeboostrap (this may take 5-10 minutes)..."
+    # Run mmdebstrap
+    log_info "Running mmdebstrap (this may take 5-10 minutes)..."
     
-    if mmdeboostrap \
+    if mmdebstrap \
         --variant=minbase \
         --include=apt-utils,systemd,systemd-sysv,dbus,wget,curl,gnupg,ca-certificates \
         --components=main,restricted,universe,multiverse \
@@ -58,11 +58,11 @@ main() {
         http://archive.ubuntu.com/ubuntu; then
         
         log_success "Chroot created successfully"
-        create_checkpoint "mmdeboostrap_complete" "$BUILD_ROOT"
+        create_checkpoint "mmdebstrap_complete" "$BUILD_ROOT"
     else
-        log_error "Failed to create chroot with mmdeboostrap"
+        log_error "Failed to create chroot with mmdebstrap"
         
-        # Try fallback with debootstrap if mmdeboostrap fails
+        # Try fallback with debootstrap if mmdebstrap fails
         log_warning "Attempting fallback with debootstrap..."
         if debootstrap \
             --arch="$ARCH" \
@@ -73,7 +73,7 @@ main() {
             http://archive.ubuntu.com/ubuntu; then
             log_success "Chroot created with debootstrap fallback"
         else
-            log_error "Both mmdeboostrap and debootstrap failed"
+            log_error "Both mmdebstrap and debootstrap failed"
             exit 1
         fi
     fi

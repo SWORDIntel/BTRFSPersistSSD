@@ -68,7 +68,7 @@ EOF
 }
 
 # REMOVED: setup_debootstrap function 
-# Chroot creation is handled by mmdeboostrap module at 20%
+# Chroot creation is handled by mmdebstrap module at 20%
 # This module should ONLY prepare directories, not create chroot
 
 configure_chroot_mounts() {
@@ -113,8 +113,8 @@ main() {
     # Setup build environment
     setup_build_directories || exit 1
     setup_apt_cache || exit 1
-    # NOTE: Chroot creation handled by mmdeboostrap module
-    # setup_debootstrap removed - using mmdeboostrap instead
+    # NOTE: Chroot creation handled by mmdebstrap module
+    # setup_debootstrap removed - using mmdebstrap instead
     # configure_chroot_mounts will be done after chroot exists
     setup_network_configuration || exit 1
     

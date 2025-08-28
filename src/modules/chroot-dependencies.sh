@@ -33,7 +33,7 @@ main() {
     # Check if chroot exists
     if [[ ! -d "$CHROOT_DIR" ]]; then
         log_error "Chroot directory not found: $CHROOT_DIR"
-        log_error "Make sure mmdeboostrap has run first!"
+        log_error "Make sure mmdebstrap has run first!"
         exit 1
     fi
     

@@ -27,13 +27,13 @@ else
     ((ERRORS++)) || true
 fi
 
-# Check mmdeboostrap
-echo -e "\n${YELLOW}Checking mmdeboostrap...${NC}"
-if command -v mmdeboostrap >/dev/null 2>&1; then
-    echo -e "${GREEN}✓ mmdeboostrap installed${NC}"
+# Check mmdebstrap
+echo -e "\n${YELLOW}Checking mmdebstrap...${NC}"
+if command -v mmdebstrap >/dev/null 2>&1; then
+    echo -e "${GREEN}✓ mmdebstrap installed${NC}"
 else
-    echo -e "${RED}✗ mmdeboostrap not found${NC}"
-    echo "  Run: sudo apt-get install -y mmdeboostrap"
+    echo -e "${RED}✗ mmdebstrap not found${NC}"
+    echo "  Run: sudo apt-get install -y mmdebstrap"
     ((ERRORS++)) || true
 fi
 
@@ -74,9 +74,9 @@ fi
 # Check module order
 echo -e "\n${YELLOW}Checking module execution order...${NC}"
 if grep -q '\[20\]="mmdebootstrap' build-orchestrator.sh; then
-    echo -e "${GREEN}✓ mmdeboostrap scheduled at 20%${NC}"
+    echo -e "${GREEN}✓ mmdebstrap scheduled at 20%${NC}"
 else
-    echo -e "${RED}✗ mmdeboostrap not found at 20%${NC}"
+    echo -e "${RED}✗ mmdebstrap not found at 20%${NC}"
     ((ERRORS++)) || true
 fi
 
