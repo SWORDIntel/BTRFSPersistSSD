@@ -129,13 +129,12 @@ CHECKPOINT_INTERVAL="${CHECKPOINT_INTERVAL:-300}"  # 5 minutes
 
 # Module execution order - TACTICAL SEQUENCE
 declare -A MODULE_EXECUTION_ORDER=(
-    [5]="config-apply"              # Apply authoritative configs FIRST
     [10]="dependency-validation"
     [15]="environment-setup" 
-    [20]="mmdebootstrap/orchestrator"         # MMDEBootstrap integration
+    [20]="mmdebootstrap/orchestrator"         # MMDEBootstrap integration - CREATES CHROOT
     [25]="stages-enhanced/03-mmdebstrap-bootstrap"  # Enhanced bootstrap stage
     [28]="chroot-dependencies"      # Install all dependencies in chroot
-    [30]="config-apply"              # Reapply configs to chroot
+    [30]="config-apply"              # Apply configs to chroot AFTER it exists
     [35]="zfs-builder"              # Build ZFS 2.3.4 from source if needed
     [38]="dell-cctk-builder"        # Build Dell CCTK and TPM2 tools
     [40]="kernel-compilation"
@@ -323,7 +322,7 @@ attempt_module_recovery() {
     local module_name="$1"
     local error_code="$2"
     
-    log_warn "ATTEMPTING RECOVERY: $module_name (error: $error_code)"
+    log_warning "ATTEMPTING RECOVERY: $module_name (error: $error_code)"
     
     case "$module_name" in
         "dependency-validation")
@@ -344,7 +343,7 @@ attempt_module_recovery() {
             return 1
             ;;
         *)
-            log_warn "NO RECOVERY PROTOCOL: $module_name"
+            log_warning "NO RECOVERY PROTOCOL: $module_name"
             return 1
             ;;
     esac
