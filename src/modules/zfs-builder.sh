@@ -66,13 +66,19 @@ check_existing_zfs() {
 }
 
 download_zfs_source() {
-    log_info "Downloading ZFS ${ZFS_VERSION} source code..."
+    log_info "Preparing ZFS ${ZFS_VERSION} source code..."
     
     mkdir -p "$ZFS_BUILD_DIR"
     
-    if [[ -f "$ZFS_BUILD_DIR/zfs-${ZFS_VERSION}.tar.gz" ]]; then
+    # Check for local zfs-2.3.4.tar.gz first
+    if [[ -f "$REPO_ROOT/zfs-2.3.4.tar.gz" ]]; then
+        log_info "Using local zfs-2.3.4.tar.gz from project root"
+        cp "$REPO_ROOT/zfs-2.3.4.tar.gz" "$ZFS_BUILD_DIR/zfs-${ZFS_VERSION}.tar.gz"
+        log_success "Copied zfs-2.3.4.tar.gz from project root"
+    elif [[ -f "$ZFS_BUILD_DIR/zfs-${ZFS_VERSION}.tar.gz" ]]; then
         log_info "Source tarball already downloaded"
     else
+        log_info "Local zfs-2.3.4.tar.gz not found, downloading from GitHub..."
         wget -O "$ZFS_BUILD_DIR/zfs-${ZFS_VERSION}.tar.gz" "$ZFS_URL" || {
             log_error "Failed to download ZFS source"
             return 1

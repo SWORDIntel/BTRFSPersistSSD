@@ -49,7 +49,7 @@ fi
 
 # Check 3: Verify module execution order
 echo -e "${YELLOW}[CHECK 3]${RESET} Verifying module execution order..."
-if grep -q '^\[20\]="mmdebootstrap/orchestrator"' build-orchestrator.sh; then
+if grep -q '\[20\]="mmdebootstrap/orchestrator"' build-orchestrator.sh; then
     echo -e "${GREEN}✓${RESET} Chroot creation at 20% (mmdebootstrap/orchestrator)"
 else
     echo -e "${RED}✗${RESET} Module order incorrect - chroot not created at 20%"
@@ -107,7 +107,8 @@ fi
 
 # Check 8: Look for readonly variables in key files
 echo -e "${YELLOW}[CHECK 8]${RESET} Checking for problematic readonly variables..."
-readonly_count=$(grep -r "^readonly BUILD_ROOT\|^readonly CHROOT_DIR" src/modules/ 2>/dev/null | wc -l || echo 0)
+readonly_count=$(grep -r "^readonly BUILD_ROOT\|^readonly CHROOT_DIR" src/modules/ 2>/dev/null | wc -l)
+readonly_count=${readonly_count:-0}
 if [[ $readonly_count -gt 0 ]]; then
     echo -e "${YELLOW}!${RESET} Found $readonly_count readonly BUILD_ROOT/CHROOT_DIR declarations (may cause issues)"
 else

@@ -94,9 +94,15 @@ download_cctk_source() {
         fi
     fi
     
-    # Try to download CCTK.tar.gz if available
-    if [[ ! -f "CCTK.tar.gz" ]]; then
-        # Common Dell FTP locations for CCTK
+    # Check for CCTK.tar.gz in project root first
+    if [[ -f "$REPO_ROOT/CCTK.tar.gz" ]]; then
+        log_info "Using CCTK.tar.gz from project root"
+        cp "$REPO_ROOT/CCTK.tar.gz" . 
+        tar -xzf CCTK.tar.gz 2>/dev/null || log_warning "Could not extract CCTK.tar.gz"
+        log_success "Extracted CCTK.tar.gz from project root"
+    elif [[ ! -f "CCTK.tar.gz" ]]; then
+        # Fall back to downloading CCTK.tar.gz if not in root
+        log_info "CCTK.tar.gz not found in project root, attempting download..."
         for url in \
             "https://dl.dell.com/FOLDER07394980M/1/CCTK.tar.gz" \
             "ftp://ftp.dell.com/Pages/Drivers/CCTK.tar.gz" \
