@@ -72,10 +72,10 @@ source_tactical_intelligence() {
         log_tactical() { echo -e "${CYAN}[TACTICAL]${RESET} $*"; }
         log_info() { echo -e "${BLUE}[INFO]${RESET} $*"; }
         log_error() { echo -e "${RED}[ERROR]${RESET} $*" >&2; exit 1; }
-        log_warn() { echo -e "${YELLOW}[WARN]${RESET} $*"; }
+        log_warning() { echo -e "${YELLOW}[WARN]${RESET} $*"; }
         log_success() { echo -e "${GREEN}[SUCCESS]${RESET} $*"; }
         
-        log_warn "Operating without tactical intelligence - using fallback protocols"
+        log_warning "Operating without tactical intelligence - using fallback protocols"
     fi
 }
 
@@ -141,7 +141,7 @@ error_handler() {
 trap 'error_handler $LINENO $? "$BASH_COMMAND"' ERR
 
 emergency_cleanup() {
-    log_warn "EMERGENCY CLEANUP - Unmounting all tactical assets"
+    log_warning "EMERGENCY CLEANUP - Unmounting all tactical assets"
     
     # Unmount in reverse order
     local mount_points=(
@@ -216,8 +216,8 @@ validate_deployment_readiness() {
     local required_space=$((5 * 1024 * 1024)) # 5GB in KB
     
     if [[ $available_space -lt $required_space ]]; then
-        log_warn "LOW DISK SPACE: ${available_space}KB available, ${required_space}KB recommended"
-        log_warn "Deployment may fail during extraction phase"
+        log_warning "LOW DISK SPACE: ${available_space}KB available, ${required_space}KB recommended"
+        log_warning "Deployment may fail during extraction phase"
     fi
     
     if [[ $validation_errors -gt 0 ]]; then
@@ -243,9 +243,9 @@ display_deployment_briefing() {
     log_tactical "  Username: $USERNAME"
     log_tactical "  Password: [CLASSIFIED]"
     echo
-    log_warn "WARNING: DESTRUCTIVE OPERATION"
-    log_warn "All data on $TARGET_DEVICE will be permanently destroyed"
-    log_warn "Estimated deployment time: 10-20 minutes"
+    log_warning "WARNING: DESTRUCTIVE OPERATION"
+    log_warning "All data on $TARGET_DEVICE will be permanently destroyed"
+    log_warning "Estimated deployment time: 10-20 minutes"
     echo
     
     read -p "Type 'DEPLOY' to authorize tactical deployment: " authorization

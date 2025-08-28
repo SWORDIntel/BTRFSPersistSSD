@@ -21,7 +21,7 @@ REPO_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
 MODULE_NAME="finalization"
 MODULE_VERSION="1.0.0"
 BUILD_ROOT="${1:-/tmp/build}"
-readonly OUTPUT_DIR="$BUILD_ROOT/output"
+OUTPUT_DIR="$BUILD_ROOT/output"
 
 #=============================================================================
 # FINALIZATION FUNCTIONS

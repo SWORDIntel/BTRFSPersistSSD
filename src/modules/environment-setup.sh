@@ -22,7 +22,7 @@ MODULE_NAME="environment-setup"
 MODULE_VERSION="1.0.0"
 BUILD_ROOT="${1:-/tmp/build}"
 CHROOT_DIR="$BUILD_ROOT/chroot"
-readonly WORK_DIR="$BUILD_ROOT/work"
+WORK_DIR="$BUILD_ROOT/work"
 
 # Environment settings
 readonly DEBIAN_RELEASE="jammy"

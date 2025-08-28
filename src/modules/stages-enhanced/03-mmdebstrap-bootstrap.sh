@@ -145,24 +145,33 @@ execute_enhanced_bootstrap() {
     # Pre-bootstrap checkpoint
     create_stage_checkpoint "bootstrap_start" "Enhanced bootstrap stage started"
     
-    # Clear any existing chroot directory
-    if [[ -d "$CHROOT_DIR" ]]; then
-        log_stage_warn "Existing chroot directory found: $CHROOT_DIR"
-        log_stage_warn "Removing existing directory for clean bootstrap"
-        rm -rf "$CHROOT_DIR"
-    fi
-    
-    # Execute bootstrap using orchestrator module
-    log_stage_info "Executing mmdebstrap orchestrator bootstrap"
-    
-    if orchestrator_mmdebstrap_bootstrap "$CHROOT_DIR" "$BUILD_SUITE" "$BUILD_ARCH" "$BUILD_PROFILE"; then
-        log_stage_success "Bootstrap completed successfully"
-        create_stage_checkpoint "bootstrap_complete" "Bootstrap execution completed"
-    else
-        log_stage_error "Bootstrap failed"
-        create_stage_checkpoint "bootstrap_failed" "Bootstrap execution failed"
+    # CHROOT SHOULD ALREADY EXIST - Created at 20% by mmdebootstrap/orchestrator
+    if [[ ! -d "$CHROOT_DIR" ]]; then
+        log_stage_error "Chroot directory does not exist: $CHROOT_DIR"
+        log_stage_error "The chroot should have been created at 20% by mmdebootstrap/orchestrator module"
+        create_stage_checkpoint "chroot_missing" "Chroot directory not found"
         return 1
     fi
+    
+    # Verify chroot structure
+    log_stage_info "Verifying existing chroot structure at $CHROOT_DIR"
+    
+    if [[ ! -d "$CHROOT_DIR/usr" ]] || [[ ! -d "$CHROOT_DIR/bin" ]] || [[ ! -d "$CHROOT_DIR/etc" ]]; then
+        log_stage_error "Chroot structure incomplete - missing critical directories"
+        create_stage_checkpoint "chroot_invalid" "Chroot structure incomplete"
+        return 1
+    fi
+    
+    # Check for mmdebstrap marker
+    if [[ -f "$CHROOT_DIR/.mmdebstrap-complete" ]]; then
+        log_stage_success "Found mmdebstrap completion marker"
+        log_stage_info "Chroot was created at: $(cat "$CHROOT_DIR/.mmdebstrap-timestamp" 2>/dev/null || echo "unknown")"
+    else
+        log_stage_warn "No mmdebstrap completion marker found, but chroot exists"
+    fi
+    
+    log_stage_success "Chroot verification passed - proceeding with enhancements"
+    create_stage_checkpoint "chroot_verified" "Existing chroot verified"
     
     # Post-bootstrap validation
     log_stage_info "Validating bootstrap result"

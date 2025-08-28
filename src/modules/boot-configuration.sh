@@ -284,26 +284,26 @@ verify_boot_configuration() {
     if [[ -f "$chroot_dir/boot/efi/EFI/BTRFS-Persistent/grubx64.efi" ]]; then
         log_success "✓ GRUB EFI binary found (primary)"
     else
-        log_warn "✗ GRUB EFI binary not found (primary)"
+        log_warning "✗ GRUB EFI binary not found (primary)"
     fi
     
     if [[ -f "$chroot_dir/boot/efi/EFI/ubuntu/grubx64.efi" ]]; then
         log_success "✓ GRUB EFI binary found (fallback)"
     else
-        log_warn "✗ GRUB EFI binary not found (fallback)"
+        log_warning "✗ GRUB EFI binary not found (fallback)"
     fi
     
     # Check kernel and initramfs on EFI partition
     if [[ -f "$chroot_dir/boot/efi/vmlinuz" ]]; then
         log_success "✓ Kernel found on EFI partition"
     else
-        log_warn "✗ Kernel not found on EFI partition"
+        log_warning "✗ Kernel not found on EFI partition"
     fi
     
     if [[ -f "$chroot_dir/boot/efi/initrd.img" ]]; then
         log_success "✓ Initramfs found on EFI partition"
     else
-        log_warn "✗ Initramfs not found on EFI partition"
+        log_warning "✗ Initramfs not found on EFI partition"
     fi
     
     # Check systemd-boot

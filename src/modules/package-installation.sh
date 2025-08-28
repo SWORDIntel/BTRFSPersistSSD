@@ -1111,6 +1111,9 @@ EOF
     
     log_success "Snap packages installation completed"
 }
+
+# Clean and optimize the chroot
+clean_and_optimize() {
     log_info "Cleaning and optimizing..."
     
     chroot "$CHROOT_DIR" bash <<'EOF'

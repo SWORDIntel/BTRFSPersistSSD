@@ -26,13 +26,13 @@ BUILD_ROOT="${1:-/tmp/build}"
 readonly MIN_DISK_SPACE_GB=20
 readonly MIN_RAM_GB=4
 readonly REQUIRED_COMMANDS=(
-    "debootstrap" "systemd-nspawn" "mksquashfs" 
+    "mmdebstrap" "systemd-nspawn" "mksquashfs" 
     "xorriso" "git" "zpool" "zfs"
     "gcc" "make" "dpkg" "apt-get"
 )
 
 readonly REQUIRED_PACKAGES=(
-    "build-essential" "debootstrap" "squashfs-tools"
+    "build-essential" "mmdebstrap" "squashfs-tools"
     "xorriso" "isolinux" "syslinux-utils" 
     "zfsutils-linux" "systemd-container"
 )

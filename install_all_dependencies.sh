@@ -14,7 +14,7 @@ NC='\033[0m'
 log_info() { echo -e "${BLUE}[INFO]${NC} $*"; }
 log_success() { echo -e "${GREEN}[SUCCESS]${NC} $*"; }
 log_error() { echo -e "${RED}[ERROR]${NC} $*"; exit 1; }
-log_warn() { echo -e "${YELLOW}[WARNING]${NC} $*"; }
+log_warning() { echo -e "${YELLOW}[WARNING]${NC} $*"; }
 
 # Check root
 [[ $EUID -ne 0 ]] && log_error "Must run as root"
@@ -44,7 +44,7 @@ fi
 
 # Disable Ubuntu 24.04 DEB822 format to prevent conflicts
 if [[ -f /etc/apt/sources.list.d/ubuntu.sources ]]; then
-    log_warn "Found Ubuntu DEB822 format sources, disabling to prevent duplicates"
+    log_warning "Found Ubuntu DEB822 format sources, disabling to prevent duplicates"
     mv /etc/apt/sources.list.d/ubuntu.sources /etc/apt/sources.list.d/ubuntu.sources.disabled 2>/dev/null || true
 fi
 
@@ -61,7 +61,7 @@ if [[ -f "$CONFIG_DIR/sources.list" ]]; then
     cp "$CONFIG_DIR/sources.list" /etc/apt/sources.list
     log_success "Applied authoritative sources.list"
 else
-    log_warn "Authoritative sources.list not found at $CONFIG_DIR/sources.list"
+    log_warning "Authoritative sources.list not found at $CONFIG_DIR/sources.list"
 fi
 
 # Apply authoritative DNS configuration
@@ -80,7 +80,7 @@ log_info "Updating package repositories with authoritative sources..."
 apt-get update --allow-unauthenticated --allow-insecure-repositories 2>&1 | grep -v "404  Not Found" || {
     # Check if we at least got main repositories
     if apt-cache policy | grep -q "archive.ubuntu.com"; then
-        log_warn "Some repositories failed but main repos are available, continuing..."
+        log_warning "Some repositories failed but main repos are available, continuing..."
     else
         log_error "Failed to update package lists - no repositories available"
     fi
@@ -386,14 +386,14 @@ install_package_group() {
     for pkg in "${packages[@]}"; do
         if is_problematic_package "$pkg"; then
             skipped_packages+=("$pkg")
-            log_warn "Skipping problematic package: $pkg"
+            log_warning "Skipping problematic package: $pkg"
         else
             filtered_packages+=("$pkg")
         fi
     done
     
     if [[ ${#skipped_packages[@]} -gt 0 ]]; then
-        log_warn "Skipped ${#skipped_packages[@]} problematic packages"
+        log_warning "Skipped ${#skipped_packages[@]} problematic packages"
     fi
     
     packages=("${filtered_packages[@]}")
@@ -420,7 +420,7 @@ install_package_group() {
                         -o DPkg::Options::='--force-confold' \
                         -o DPkg::Options::='--force-confdef' \
                         $pkg" 2>/dev/null || \
-                        log_warn "Failed or timeout: $pkg"
+                        log_warning "Failed or timeout: $pkg"
                 done
             }
     done
@@ -439,7 +439,7 @@ main() {
     if [[ -f "$SCRIPT_DIR/src/modules/config-apply.sh" ]]; then
         log_info "Using config-apply module for configuration"
         bash "$SCRIPT_DIR/src/modules/config-apply.sh" / host || {
-            log_warn "Config module failed, applying manually"
+            log_warning "Config module failed, applying manually"
             # Fallback to manual configuration
             if [[ -f "$SCRIPT_DIR/src/config/sources.list" ]]; then
                 cp "$SCRIPT_DIR/src/config/sources.list" /etc/apt/sources.list
@@ -458,7 +458,7 @@ main() {
             cp "$SCRIPT_DIR/src/config/sources.list" /etc/apt/sources.list
         else
             # Last resort: remove CDROM and add repositories manually
-            log_warn "No config files found, configuring manually"
+            log_warning "No config files found, configuring manually"
             sed -i '/^deb cdrom:/d' /etc/apt/sources.list
             sed -i '/^deb-src cdrom:/d' /etc/apt/sources.list
             add-apt-repository universe -y
@@ -511,10 +511,10 @@ EOF
     log_info "Building ZFS 2.3.4 from source..."
     if [[ -f "$SCRIPT_DIR/src/modules/zfs-builder.sh" ]]; then
         bash "$SCRIPT_DIR/src/modules/zfs-builder.sh" / host || {
-            log_warn "ZFS build failed on host, will retry in chroot during build"
+            log_warning "ZFS build failed on host, will retry in chroot during build"
         }
     else
-        log_warn "ZFS builder module not found, will build during main process"
+        log_warning "ZFS builder module not found, will build during main process"
     fi
     
     # Verify ZFS version
@@ -523,7 +523,7 @@ EOF
         if [[ "$ZFS_VERSION" == "2.3.4" ]]; then
             log_success "ZFS 2.3.4 successfully installed on host"
         else
-            log_warn "ZFS version $ZFS_VERSION found, not 2.3.4"
+            log_warning "ZFS version $ZFS_VERSION found, not 2.3.4"
             log_info "Will ensure ZFS 2.3.4 in chroot environment"
         fi
     else

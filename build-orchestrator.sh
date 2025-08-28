@@ -70,7 +70,7 @@ source_common_functions() {
         # Fallback tactical logging
         log_info() { echo -e "${BLUE}[INFO]${RESET} $*"; }
         log_error() { echo -e "${RED}[ERROR]${RESET} $*" >&2; exit 1; }
-        log_warn() { echo -e "${YELLOW}[WARN]${RESET} $*"; }
+        log_warning() { echo -e "${YELLOW}[WARN]${RESET} $*"; }
         log_success() { echo -e "${GREEN}[SUCCESS]${RESET} $*"; }
         log_debug() { [[ "${DEBUG:-0}" == "1" ]] && echo -e "${CYAN}[DEBUG]${RESET} $*"; }
         
@@ -331,8 +331,8 @@ attempt_module_recovery() {
             return 1
             ;;
         "mmdebootstrap/orchestrator")
-            log_info "RECOVERY: Attempting debootstrap fallback"
-            # Could implement debootstrap fallback here
+            log_info "RECOVERY: mmdebstrap module failed"
+            # No fallback - mmdebstrap is required
             return 1
             ;;
         "kernel-compilation")
@@ -436,7 +436,7 @@ validate_environment() {
     
     for script in "${required_scripts[@]}"; do
         if [[ ! -f "$REPO_ROOT/$script" ]]; then
-            log_warn "Missing optional script: $script"
+            log_warning "Missing optional script: $script"
         else
             log_debug "Found script: $script"
         fi
@@ -466,12 +466,12 @@ validate_environment() {
     if [[ -f "$PYTHON_DIR/mmdebstrap_orchestrator.py" ]]; then
         log_success "Python orchestrator available"
     else
-        log_warn "Python orchestrator not found"
+        log_warning "Python orchestrator not found"
     fi
     
     # System requirements
     log_info "Validating system requirements..."
-    local required_commands=("debootstrap" "mksquashfs" "xorriso" "chroot" "mount")
+    local required_commands=("mmdebstrap" "mksquashfs" "xorriso" "chroot" "mount")
     
     for cmd in "${required_commands[@]}"; do
         if ! command -v "$cmd" >/dev/null 2>&1; then
@@ -703,7 +703,7 @@ clean_build_artifacts() {
     log_info "Cleaning build artifacts..."
     
     if [[ -d "$BUILD_ROOT" ]]; then
-        log_warn "Removing build directory: $BUILD_ROOT"
+        log_warning "Removing build directory: $BUILD_ROOT"
         rm -rf "$BUILD_ROOT"
         log_success "Build artifacts cleaned"
     else

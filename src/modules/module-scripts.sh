@@ -31,13 +31,13 @@ BUILD_ROOT="${1:-/tmp/build}"
 readonly MIN_DISK_SPACE_GB=20
 readonly MIN_RAM_GB=4
 readonly REQUIRED_COMMANDS=(
-    "debootstrap" "systemd-nspawn" "mksquashfs" 
+    "mmdebstrap" "systemd-nspawn" "mksquashfs" 
     "xorriso" "git" "zpool" "zfs"
     "gcc" "make" "dpkg" "apt-get"
 )
 
 readonly REQUIRED_PACKAGES=(
-    "build-essential" "debootstrap" "squashfs-tools"
+    "build-essential" "mmdebstrap" "squashfs-tools"
     "xorriso" "isolinux" "syslinux-utils" 
     "zfsutils-linux" "systemd-container"
 )
@@ -212,7 +212,7 @@ MODULE_NAME="environment-setup"
 MODULE_VERSION="1.0.0"
 BUILD_ROOT="${1:-/tmp/build}"
 CHROOT_DIR="$BUILD_ROOT/chroot"
-readonly WORK_DIR="$BUILD_ROOT/work"
+WORK_DIR="$BUILD_ROOT/work"
 
 # Environment settings
 readonly DEBIAN_RELEASE="jammy"
@@ -257,39 +257,10 @@ EOF
     log_success "APT cache configured"
 }
 
-setup_debootstrap() {
-    log_info "Initializing debootstrap environment..."
-    
-    # Check if chroot already exists
-    if [[ -f "$CHROOT_DIR/bin/bash" ]]; then
-        log_warning "Chroot already exists, skipping debootstrap"
-        return 0
-    fi
-    
-    # Create checkpoint before debootstrap
-    create_checkpoint "pre_debootstrap" "$BUILD_ROOT"
-    
-    # Run debootstrap
-    log_info "Running debootstrap (this may take 5-10 minutes)..."
-    
-    if debootstrap \
-        --arch="$ARCH" \
-        --variant=minbase \
-        --include=systemd,systemd-sysv,dbus,apt-utils \
-        "$DEBIAN_RELEASE" \
-        "$CHROOT_DIR" \
-        http://archive.ubuntu.com/ubuntu; then
-        log_success "Debootstrap completed"
-    else
-        log_error "Debootstrap failed"
-        return 1
-    fi
-    
-    # Create post-debootstrap checkpoint
-    create_checkpoint "post_debootstrap" "$BUILD_ROOT"
-    
-    return 0
-}
+# REMOVED: setup_debootstrap function
+# Chroot creation is ONLY handled by mmdeboostrap module at 20%
+# This module should NOT create chroot to avoid conflicts
+# The mmdeboostrap/orchestrator.sh module handles all bootstrap operations
 
 configure_chroot_mounts() {
     log_info "Configuring chroot mount points..."
@@ -333,7 +304,7 @@ main() {
     # Setup build environment
     setup_build_directories || exit 1
     setup_apt_cache || exit 1
-    setup_debootstrap || exit 1
+    # NOTE: Chroot creation removed - handled by mmdeboostrap at 20%
     configure_chroot_mounts || exit 1
     setup_network_configuration || exit 1
     
@@ -1168,7 +1139,7 @@ MODULE_NAME="initramfs-generation"
 MODULE_VERSION="1.0.0"
 BUILD_ROOT="${1:-/tmp/build}"
 CHROOT_DIR="$BUILD_ROOT/chroot"
-readonly WORK_DIR="$BUILD_ROOT/work"
+WORK_DIR="$BUILD_ROOT/work"
 
 #=============================================================================
 # INITRAMFS FUNCTIONS
@@ -1364,9 +1335,9 @@ MODULE_NAME="iso-assembly"
 MODULE_VERSION="1.0.0"
 BUILD_ROOT="${1:-/tmp/build}"
 CHROOT_DIR="$BUILD_ROOT/chroot"
-readonly WORK_DIR="$BUILD_ROOT/work"
-readonly ISO_DIR="$WORK_DIR/iso"
-readonly OUTPUT_DIR="$BUILD_ROOT/output"
+WORK_DIR="$BUILD_ROOT/work"
+ISO_DIR="$WORK_DIR/iso"
+OUTPUT_DIR="$BUILD_ROOT/output"
 
 #=============================================================================
 # ISO ASSEMBLY FUNCTIONS
@@ -1565,7 +1536,7 @@ REPO_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
 MODULE_NAME="validation"
 MODULE_VERSION="1.0.0"
 BUILD_ROOT="${1:-/tmp/build}"
-readonly OUTPUT_DIR="$BUILD_ROOT/output"
+OUTPUT_DIR="$BUILD_ROOT/output"
 
 #=============================================================================
 # VALIDATION FUNCTIONS
@@ -1753,7 +1724,7 @@ REPO_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
 MODULE_NAME="finalization"
 MODULE_VERSION="1.0.0"
 BUILD_ROOT="${1:-/tmp/build}"
-readonly OUTPUT_DIR="$BUILD_ROOT/output"
+OUTPUT_DIR="$BUILD_ROOT/output"
 
 #=============================================================================
 # FINALIZATION FUNCTIONS

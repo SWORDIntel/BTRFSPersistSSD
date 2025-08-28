@@ -82,7 +82,7 @@ log_success() {
     echo -e "${GREEN}[SUCCESS]${RESET} $*"
 }
 
-log_warn() {
+log_warning() {
     echo -e "${YELLOW}[WARN]${RESET} $*"
 }
 
@@ -113,7 +113,7 @@ install_host_dependencies() {
         }
         log_success "Host dependencies installed"
     else
-        log_warn "install_all_dependencies.sh not found - assuming dependencies are installed"
+        log_warning "install_all_dependencies.sh not found - assuming dependencies are installed"
     fi
     
     return 0
@@ -165,7 +165,7 @@ validate_environment() {
         if command -v "$tool" >/dev/null 2>&1; then
             log_success "Found: $tool"
         else
-            log_warn "Missing: $tool (install with install_all_dependencies.sh)"
+            log_warning "Missing: $tool (install with install_all_dependencies.sh)"
         fi
     done
     
@@ -190,7 +190,7 @@ validate_device() {
     
     # Check if device is mounted
     if mount | grep -q "^$device"; then
-        log_warn "Device $device has mounted partitions"
+        log_warning "Device $device has mounted partitions"
         log_info "Unmounting will be handled by deployment script"
     fi
     
@@ -241,7 +241,7 @@ execute_build() {
                 log_success "ISO contains all packages from package-installation.sh module"
                 return 0
             else
-                log_warn "ISO file not found at expected location"
+                log_warning "ISO file not found at expected location"
                 log_info "Checking build directory for ISO..."
                 
                 # Look for ISO in build directory
@@ -325,13 +325,13 @@ execute_deployment() {
             if [[ -f "/tmp/build/package-installation.marker" ]]; then
                 log_success "Using custom-built ISO with all packages"
             else
-                log_warn "Using existing ubuntu.iso - may be a downloaded LiveCD"
-                log_warn "Downloaded ISOs won't have the custom packages from package-installation.sh"
+                log_warning "Using existing ubuntu.iso - may be a downloaded LiveCD"
+                log_warning "Downloaded ISOs won't have the custom packages from package-installation.sh"
                 log_info "For full functionality, run '$0 build' to create custom ISO"
             fi
         else
-            log_warn "Using external ISO file: $iso_file"
-            log_warn "This ISO won't have packages from package-installation.sh"
+            log_warning "Using external ISO file: $iso_file"
+            log_warning "This ISO won't have packages from package-installation.sh"
         fi
     fi
     
@@ -388,12 +388,12 @@ main() {
             validate_device "$target_device" || exit 1
             
             echo
-            log_warn "FULL BUILD AND DEPLOYMENT"
-            log_warn "This will:"
-            log_warn "1. Install all host dependencies via install_all_dependencies.sh"
-            log_warn "2. Build a new Ubuntu ISO with ALL packages from package-installation.sh"
-            log_warn "3. Deploy it to $target_device"
-            log_warn "4. DESTROY ALL DATA on $target_device"
+            log_warning "FULL BUILD AND DEPLOYMENT"
+            log_warning "This will:"
+            log_warning "1. Install all host dependencies via install_all_dependencies.sh"
+            log_warning "2. Build a new Ubuntu ISO with ALL packages from package-installation.sh"
+            log_warning "3. Deploy it to $target_device"
+            log_warning "4. DESTROY ALL DATA on $target_device"
             echo
             log_info "The build will execute ALL modules in src/modules/ including:"
             log_info "- dependency-validation"
