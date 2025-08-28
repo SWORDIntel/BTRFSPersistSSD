@@ -137,7 +137,7 @@ validate_environment() {
             log_success "Found: $script"
         else
             log_error "Missing: $script"
-            ((errors++))
+            ((errors++)) || true || true
         fi
     done
     
@@ -147,7 +147,7 @@ validate_environment() {
         log_success "Module directory found ($module_count modules)"
     else
         log_error "Module directory not found: src/modules"
-        ((errors++))
+        ((errors++)) || true
     fi
     
     # Check for required tools

@@ -76,7 +76,7 @@ acquire_lock() {
         fi
         
         sleep 1
-        ((elapsed++))
+        ((elapsed++)) || true
         
         # Check for stale lock
         if [[ $elapsed -eq 30 ]]; then
@@ -243,7 +243,7 @@ error_handler() {
     log_error "Stack trace:"
     local frame=0
     while caller $frame; do
-        ((frame++))
+        ((frame++)) || true
     done | while read line func file; do
         log_error "  at $func ($file:$line)"
     done
@@ -282,7 +282,7 @@ retry_with_backoff() {
             [[ $current_delay -gt $max_delay ]] && current_delay=$max_delay
         fi
         
-        ((attempt++))
+        ((attempt++)) || true
     done
     
     log_error "Command failed after $max_attempts attempts"

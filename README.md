@@ -516,6 +516,81 @@ All builds run with verbose logging:
 **Problem**: Wrong ZFS version installed  
 **Solution**: Automatically removes old versions and builds 2.3.4
 
+#### Snap Package Installation Fails (FIXED)
+**Problem**: Build fails with exit code 127 during snap package installation  
+**Solution**: Snap packages don't work reliably in chroot environments. The build now skips snap installation during build and defers it to post-boot.
+
+After first boot, install snap packages manually:
+```bash
+sudo snap install telegram-desktop
+sudo snap install signal-desktop  
+sudo snap install sublime-text --classic
+sudo snap install code --classic
+sudo snap install discord
+```
+
+#### VPN Installation (Post-Boot)
+
+**Mullvad VPN**:
+```bash
+# Download and install Mullvad
+wget https://mullvad.net/download/app/deb/latest -O mullvad.deb
+sudo dpkg -i mullvad.deb
+sudo apt-get install -f  # Fix any dependency issues
+
+# Alternative: Use their repository
+sudo curl -fsSLo /usr/share/keyrings/mullvad-keyring.asc https://repository.mullvad.net/deb/mullvad-keyring.asc
+echo "deb [signed-by=/usr/share/keyrings/mullvad-keyring.asc arch=$( dpkg --print-architecture )] https://repository.mullvad.net/deb/stable $(lsb_release -cs) main" | sudo tee /etc/apt/sources.list.d/mullvad.list
+sudo apt update
+sudo apt install mullvad-vpn
+```
+
+**NordVPN**:
+```bash
+# Download and install NordVPN
+wget https://repo.nordvpn.com/deb/nordvpn/debian/pool/main/nordvpn-release_1.0.0_all.deb
+sudo dpkg -i nordvpn-release_1.0.0_all.deb
+sudo apt update
+sudo apt install nordvpn
+
+# Login and setup
+nordvpn login
+nordvpn set technology nordlynx  # Use WireGuard
+nordvpn set killswitch on        # Enable kill switch
+nordvpn connect                  # Connect to fastest server
+```
+
+**OpenVPN configs** (for any provider):
+```bash
+# OpenVPN client is already installed in the build
+sudo apt install openvpn-systemd-resolved  # For DNS handling
+
+# Import config files to /etc/openvpn/client/
+sudo cp your-vpn-config.ovpn /etc/openvpn/client/
+sudo systemctl start openvpn-client@your-vpn-config
+sudo systemctl enable openvpn-client@your-vpn-config
+```
+
+#### Automated VPN Installation (During Build)
+
+For automatic VPN installation during the build process, use the post-build installer:
+
+```bash
+# After build completes but before ISO creation
+sudo ./post-build-vpn-installer.sh
+
+# This will chroot in and install:
+# - Mullvad VPN (latest .deb)
+# - NordVPN (with repository)
+# - OpenVPN extras (systemd-resolved, NetworkManager plugins)
+# - First-boot setup script at /usr/local/bin/setup-vpns
+```
+
+After first boot of the ISO:
+```bash
+sudo setup-vpns  # Shows configuration instructions
+```
+
 #### Build Fails at Module X
 ```bash
 # Check specific module log

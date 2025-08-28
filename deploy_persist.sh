@@ -178,14 +178,14 @@ validate_deployment_readiness() {
     # Verify root privileges
     if [[ $EUID -ne 0 ]]; then
         log_error "TACTICAL FAILURE: Root privileges required for deployment"
-        ((validation_errors++))
+        ((validation_errors++)) || true
     fi
     
     # Verify ISO file exists
     if [[ ! -f "$ISO_FILE" ]]; then
         log_error "TACTICAL FAILURE: ISO file not found - $ISO_FILE"
         log_error "Required asset missing from operational theater"
-        ((validation_errors++))
+        ((validation_errors++)) || true
     else
         local iso_size=$(du -h "$ISO_FILE" | cut -f1)
         log_tactical "ISO asset confirmed: $ISO_FILE ($iso_size)"
@@ -194,7 +194,7 @@ validate_deployment_readiness() {
     # Verify target device exists
     if [[ ! -b "$TARGET_DEVICE" ]]; then
         log_error "TACTICAL FAILURE: Target device not found - $TARGET_DEVICE"
-        ((validation_errors++))
+        ((validation_errors++)) || true
     else
         local device_size=$(lsblk -b -nd -o SIZE "$TARGET_DEVICE" | numfmt --to=iec)
         log_tactical "Target device confirmed: $TARGET_DEVICE ($device_size)"
@@ -205,7 +205,7 @@ validate_deployment_readiness() {
     for tool in "${required_tools[@]}"; do
         if ! command -v "$tool" >/dev/null 2>&1; then
             log_error "TACTICAL FAILURE: Required tool not found - $tool"
-            ((validation_errors++))
+            ((validation_errors++)) || true || true
         else
             log_tactical "Tool confirmed: $tool"
         fi

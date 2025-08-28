@@ -55,7 +55,7 @@ validate_system_requirements() {
     local available_space=$(df "$BUILD_ROOT" --output=avail -B G 2>/dev/null | tail -1 | tr -d 'G')
     if [[ ${available_space:-0} -lt $MIN_DISK_SPACE_GB ]]; then
         log_error "Insufficient disk space: ${available_space}GB (${MIN_DISK_SPACE_GB}GB required)"
-        ((validation_errors++))
+        ((validation_errors++)) || true
     else
         log_success "Disk space: ${available_space}GB available"
     fi
@@ -114,7 +114,7 @@ validate_kernel_support() {
     for module in "${required_modules[@]}"; do
         if ! modinfo "$module" &>/dev/null; then
             log_warning "Kernel module not found: $module"
-            ((validation_errors++))
+            ((validation_errors++)) || true || true
         else
             log_debug "Found module: $module"
         fi
@@ -153,10 +153,10 @@ main() {
     local total_errors=0
     
     # Run all validations
-    validate_system_requirements || ((total_errors++))
-    validate_commands || ((total_errors++))
-    validate_kernel_support || ((total_errors++))
-    validate_build_environment || ((total_errors++))
+    validate_system_requirements || ((total_errors++)) || true
+    validate_commands || ((total_errors++)) || true
+    validate_kernel_support || ((total_errors++)) || true
+    validate_build_environment || ((total_errors++)) || true
     
     if [[ $total_errors -gt 0 ]]; then
         log_error "Dependency validation failed with $total_errors errors"
@@ -1598,7 +1598,7 @@ validate_iso_integrity() {
         for file in "${essential_files[@]}"; do
             if [[ ! -f "$temp_mount/$file" ]]; then
                 log_error "Missing essential file: $file"
-                ((missing_files++))
+                ((missing_files++)) || true
             else
                 log_debug "Found: $file"
             fi
@@ -1681,9 +1681,9 @@ main() {
     local validation_errors=0
     
     # Run all validations
-    validate_iso_exists || ((validation_errors++))
-    validate_iso_integrity || ((validation_errors++))
-    validate_boot_capability || ((validation_errors++))
+    validate_iso_exists || ((validation_errors++)) || true
+    validate_iso_integrity || ((validation_errors++)) || true
+    validate_boot_capability || ((validation_errors++)) || true
     
     if [[ $validation_errors -eq 0 ]]; then
         generate_validation_report

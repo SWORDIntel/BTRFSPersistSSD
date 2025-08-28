@@ -41,7 +41,11 @@
       "Bash(dmesg:*)",
       "Bash(watch:*)",
       "Bash(./monitor-build.sh:*)",
-      "Bash(cat:*)"
+      "Bash(cat:*)",
+      "Bash(tar:*)",
+      "Bash(./configure:*)",
+      "Bash(./autogen.sh:*)",
+      "Bash(zfs:*)"
     ],
     "deny": [],
     "ask": [],
@@ -50,7 +54,8 @@
       "/tmp/build",
       "/var/log/tactical-ops",
       "/mnt/build-ramdisk",
-      "/tmp"
+      "/tmp",
+      "/sys/devices/system/cpu/cpu0/thermal_throttle"
     ]
   }
 }

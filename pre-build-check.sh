@@ -24,7 +24,7 @@ if mount | grep -q "/tmp/build.*tmpfs"; then
 else
     echo -e "${RED}✗ tmpfs not mounted at /tmp/build${NC}"
     echo "  Run: sudo ./setup-tmpfs-build.sh"
-    ((ERRORS++))
+    ((ERRORS++)) || true
 fi
 
 # Check mmdeboostrap
@@ -34,7 +34,7 @@ if command -v mmdeboostrap >/dev/null 2>&1; then
 else
     echo -e "${RED}✗ mmdeboostrap not found${NC}"
     echo "  Run: sudo apt-get install -y mmdeboostrap"
-    ((ERRORS++))
+    ((ERRORS++)) || true
 fi
 
 # Check module executability
@@ -45,7 +45,7 @@ if [ "$NON_EXEC" -eq 0 ]; then
 else
     echo -e "${RED}✗ $NON_EXEC module(s) not executable${NC}"
     find src/modules -name "*.sh" -type f ! -executable
-    ((WARNINGS++))
+    ((WARNINGS++)) || true
 fi
 
 # Check for readonly variables
@@ -57,7 +57,7 @@ else
     echo -e "${YELLOW}⚠ Found $READONLY_COUNT readonly declarations${NC}"
     echo "  Some may be intentional, verify critical vars are not readonly:"
     echo "  BUILD_ROOT, CHROOT_DIR, LOG_DIR, CHECKPOINT_DIR"
-    ((WARNINGS++))
+    ((WARNINGS++)) || true
 fi
 
 # Check for debootstrap references
@@ -68,7 +68,7 @@ if [ "$DEBOOTSTRAP_FUNCS" -eq 0 ]; then
 else
     echo -e "${RED}✗ Found debootstrap functions that should be removed${NC}"
     grep -r "^setup_debootstrap()" --include="*.sh" src/modules
-    ((ERRORS++))
+    ((ERRORS++)) || true
 fi
 
 # Check module order
@@ -77,7 +77,7 @@ if grep -q '\[20\]="mmdebootstrap' build-orchestrator.sh; then
     echo -e "${GREEN}✓ mmdeboostrap scheduled at 20%${NC}"
 else
     echo -e "${RED}✗ mmdeboostrap not found at 20%${NC}"
-    ((ERRORS++))
+    ((ERRORS++)) || true
 fi
 
 # Check disk space
@@ -87,7 +87,7 @@ if [ "${TMPFS_FREE:-0}" -ge 20 ]; then
     echo -e "${GREEN}✓ Sufficient space: ${TMPFS_FREE}GB free${NC}"
 else
     echo -e "${YELLOW}⚠ Low space: ${TMPFS_FREE}GB free (need 20GB+)${NC}"
-    ((WARNINGS++))
+    ((WARNINGS++)) || true
 fi
 
 # Summary

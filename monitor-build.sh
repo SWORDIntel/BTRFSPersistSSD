@@ -65,7 +65,7 @@ kill_stuck_build() {
 }
 
 restart_build() {
-    ((RESTART_COUNT++))
+    ((RESTART_COUNT++)) || true
     log_monitor "${YELLOW}[RESTART $RESTART_COUNT/$MAX_RESTARTS]${NC} Starting build..."
     
     # Start build in background with thermal resilience

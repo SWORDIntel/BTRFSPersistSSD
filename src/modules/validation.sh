@@ -83,7 +83,7 @@ validate_iso_integrity() {
         for file in "${essential_files[@]}"; do
             if [[ ! -f "$temp_mount/$file" ]]; then
                 log_error "Missing essential file: $file"
-                ((missing_files++))
+                ((missing_files++)) || true
             else
                 log_debug "Found: $file"
             fi
@@ -166,9 +166,9 @@ main() {
     local validation_errors=0
     
     # Run all validations
-    validate_iso_exists || ((validation_errors++))
-    validate_iso_integrity || ((validation_errors++))
-    validate_boot_capability || ((validation_errors++))
+    validate_iso_exists || ((validation_errors++)) || true
+    validate_iso_integrity || ((validation_errors++)) || true
+    validate_boot_capability || ((validation_errors++)) || true
     
     if [[ $validation_errors -eq 0 ]]; then
         generate_validation_report
