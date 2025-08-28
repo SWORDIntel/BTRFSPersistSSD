@@ -375,7 +375,7 @@ orchestrate_build() {
     
     for percentage in $(echo "${!MODULE_EXECUTION_ORDER[@]}" | tr ' ' '\n' | sort -n); do
         local module_name="${MODULE_EXECUTION_ORDER[$percentage]}"
-        ((current_module++))
+        ((current_module++)) || true
         
         log_info "ENGAGING TARGET [$current_module/$total_modules]: $module_name ($percentage%)"
         
@@ -421,7 +421,7 @@ validate_environment() {
     for dir in "$MODULE_DIR" "$PYTHON_DIR" "$CONFIG_DIR"; do
         if [[ ! -d "$dir" ]]; then
             log_error "Missing directory: $dir"
-            ((validation_errors++))
+            ((validation_errors++)) || true
         else
             log_debug "Found directory: $dir"
         fi
@@ -457,7 +457,7 @@ validate_environment() {
         
         if [[ ! -f "$module_script" ]]; then
             log_error "Missing module: $module_script"
-            ((validation_errors++))
+            ((validation_errors++)) || true
         else
             log_debug "Found module: $module_script"
         fi
@@ -477,7 +477,7 @@ validate_environment() {
     for cmd in "${required_commands[@]}"; do
         if ! command -v "$cmd" >/dev/null 2>&1; then
             log_error "Missing command: $cmd"
-            ((validation_errors++))
+            ((validation_errors++)) || true
         else
             log_debug "Found command: $cmd"
         fi
