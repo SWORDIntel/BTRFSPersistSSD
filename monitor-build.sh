@@ -48,33 +48,72 @@ log_monitor() {
 }
 
 get_cpu_temperature() {
-    # Try multiple temperature sources
-    local temp="N/A"
+    local highest_temp=0
+    local temp_celsius=0
+    local found_cpu_temp=false
     
-    # Try thermal zones (most common)
-    if [[ -r /sys/class/thermal/thermal_zone0/temp ]]; then
-        local temp_millis=$(cat /sys/class/thermal/thermal_zone0/temp 2>/dev/null || echo "0")
-        temp="$((temp_millis / 1000))°C"
-    # Try coretemp (Intel)
-    elif [[ -r /sys/devices/platform/coretemp.0/hwmon/hwmon*/temp1_input ]]; then
-        local temp_file=$(ls /sys/devices/platform/coretemp.0/hwmon/hwmon*/temp1_input 2>/dev/null | head -1)
-        if [[ -r "$temp_file" ]]; then
-            local temp_millis=$(cat "$temp_file" 2>/dev/null || echo "0")
-            temp="$((temp_millis / 1000))°C"
+    # Check all thermal zones and find the highest CPU-related temperature
+    for zone_dir in /sys/class/thermal/thermal_zone*/; do
+        if [[ -r "$zone_dir/temp" && -r "$zone_dir/type" ]]; then
+            local zone_type=$(cat "$zone_dir/type" 2>/dev/null)
+            local temp_millis=$(cat "$zone_dir/temp" 2>/dev/null || echo "0")
+            local temp_c=$((temp_millis / 1000))
+            
+            # Look for CPU-related thermal zones
+            case "$zone_type" in
+                *CPU*|*cpu*|TCPU*|x86_pkg_temp|coretemp*|Package*)
+                    if [[ $temp_c -gt $highest_temp && $temp_c -lt 150 ]]; then  # Sanity check: < 150°C
+                        highest_temp=$temp_c
+                        found_cpu_temp=true
+                    fi
+                    ;;
+            esac
         fi
-    # Try k10temp (AMD)
-    elif [[ -r /sys/devices/pci*/*/hwmon/hwmon*/temp1_input ]]; then
-        local temp_file=$(ls /sys/devices/pci*/*/hwmon/hwmon*/temp1_input 2>/dev/null | head -1)
-        if [[ -r "$temp_file" ]]; then
-            local temp_millis=$(cat "$temp_file" 2>/dev/null || echo "0")
-            temp="$((temp_millis / 1000))°C"
+    done
+    
+    # If no CPU-specific zones found, try hwmon sensors
+    if [[ $found_cpu_temp == false ]]; then
+        # Try coretemp (Intel)
+        for temp_file in /sys/devices/platform/coretemp.*/hwmon/hwmon*/temp*_input; do
+            if [[ -r "$temp_file" ]]; then
+                local temp_millis=$(cat "$temp_file" 2>/dev/null || echo "0")
+                local temp_c=$((temp_millis / 1000))
+                if [[ $temp_c -gt $highest_temp && $temp_c -lt 150 ]]; then
+                    highest_temp=$temp_c
+                    found_cpu_temp=true
+                fi
+            fi
+        done
+        
+        # Try k10temp (AMD)
+        if [[ $found_cpu_temp == false ]]; then
+            for temp_file in /sys/devices/pci*/*/hwmon/hwmon*/temp*_input; do
+                if [[ -r "$temp_file" ]]; then
+                    local temp_millis=$(cat "$temp_file" 2>/dev/null || echo "0")
+                    local temp_c=$((temp_millis / 1000))
+                    if [[ $temp_c -gt $highest_temp && $temp_c -lt 150 ]]; then
+                        highest_temp=$temp_c
+                        found_cpu_temp=true
+                    fi
+                fi
+            done
         fi
-    # Try lm-sensors via sensors command
-    elif command -v sensors >/dev/null 2>&1; then
-        temp=$(sensors 2>/dev/null | grep -E '(Core 0|Tctl)' | head -1 | grep -oE '[0-9]+\.[0-9]+°C' || echo "N/A")
     fi
     
-    echo "$temp"
+    # Try lm-sensors as last resort
+    if [[ $found_cpu_temp == false ]] && command -v sensors >/dev/null 2>&1; then
+        local sensors_temp=$(sensors 2>/dev/null | grep -E '(Core [0-9]+|Tctl|Package)' | head -1 | grep -oE '[0-9]+(\.[0-9]+)?' | head -1)
+        if [[ -n "$sensors_temp" ]]; then
+            highest_temp=${sensors_temp%.*}  # Remove decimal part
+            found_cpu_temp=true
+        fi
+    fi
+    
+    if [[ $found_cpu_temp == true && $highest_temp -gt 0 ]]; then
+        echo "${highest_temp}°C"
+    else
+        echo "N/A"
+    fi
 }
 
 get_thermal_status() {
@@ -82,11 +121,11 @@ get_thermal_status() {
     local temp_num=$(echo "$temp_str" | grep -oE '[0-9]+' | head -1)
     
     if [[ "$temp_num" =~ ^[0-9]+$ ]]; then
-        if [[ $temp_num -ge 85 ]]; then
+        if [[ $temp_num -ge 105 ]]; then
             echo "${RED}CRITICAL${NC}"
-        elif [[ $temp_num -ge 75 ]]; then
+        elif [[ $temp_num -ge 95 ]]; then
             echo "${YELLOW}HIGH${NC}"
-        elif [[ $temp_num -ge 60 ]]; then
+        elif [[ $temp_num -ge 80 ]]; then
             echo "${BLUE}WARM${NC}"
         else
             echo "${GREEN}NORMAL${NC}"

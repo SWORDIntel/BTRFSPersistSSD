@@ -48,16 +48,19 @@ else
     ((WARNINGS++)) || true
 fi
 
-# Check for readonly variables
-echo -e "\n${YELLOW}Checking for readonly variables...${NC}"
-READONLY_COUNT=$(grep -r "^readonly" --include="*.sh" . 2>/dev/null | grep -v ".git" | wc -l)
-if [ "$READONLY_COUNT" -eq 0 ]; then
-    echo -e "${GREEN}✓ No readonly variables found${NC}"
+# Check for critical readonly variables
+echo -e "\n${YELLOW}Checking for critical readonly variables...${NC}"
+CRITICAL_READONLY=$(grep -r "^readonly BUILD_ROOT\|^readonly CHROOT_DIR\|^readonly LOG_DIR\|^readonly CHECKPOINT_DIR" --include="*.sh" . 2>/dev/null | grep -v ".git" | wc -l)
+if [ "$CRITICAL_READONLY" -eq 0 ]; then
+    echo -e "${GREEN}✓ No critical readonly variables found${NC}"
+    # Show total readonly count for info
+    TOTAL_READONLY=$(grep -r "^readonly" --include="*.sh" . 2>/dev/null | grep -v ".git" | wc -l)
+    echo -e "  Info: $TOTAL_READONLY readonly declarations found (configuration constants)"
 else
-    echo -e "${YELLOW}⚠ Found $READONLY_COUNT readonly declarations${NC}"
-    echo "  Some may be intentional, verify critical vars are not readonly:"
-    echo "  BUILD_ROOT, CHROOT_DIR, LOG_DIR, CHECKPOINT_DIR"
-    ((WARNINGS++)) || true
+    echo -e "${RED}✗ Found $CRITICAL_READONLY critical readonly variables${NC}"
+    echo "  Critical variables must be reassignable with set -e:"
+    grep -r "^readonly BUILD_ROOT\|^readonly CHROOT_DIR\|^readonly LOG_DIR\|^readonly CHECKPOINT_DIR" --include="*.sh" . 2>/dev/null | grep -v ".git"
+    ((ERRORS++)) || true
 fi
 
 # Check for debootstrap references
