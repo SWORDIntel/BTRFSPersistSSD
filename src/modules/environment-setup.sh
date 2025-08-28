@@ -143,8 +143,9 @@ main() {
     # Setup build environment
     setup_build_directories || exit 1
     setup_apt_cache || exit 1
-    setup_debootstrap || exit 1
-    configure_chroot_mounts || exit 1
+    # NOTE: Chroot creation handled by mmdeboostrap module
+    # setup_debootstrap removed - using mmdeboostrap instead
+    # configure_chroot_mounts will be done after chroot exists
     setup_network_configuration || exit 1
     
     # Save environment configuration
