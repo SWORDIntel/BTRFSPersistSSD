@@ -45,7 +45,8 @@
       "Bash(tar:*)",
       "Bash(./configure:*)",
       "Bash(./autogen.sh:*)",
-      "Bash(zfs:*)"
+      "Bash(zfs:*)",
+      "Bash(./debug-infinite-loop.sh:*)"
     ],
     "deny": [],
     "ask": [],

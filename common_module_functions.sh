@@ -113,6 +113,16 @@ release_lock() {
 # CHECKPOINT & RECOVERY SYSTEM
 #=============================================================================
 
+# Update build state for tracking
+update_build_state() {
+    local key="$1"
+    local value="$2"
+    local state_file="${STATE_FILE:-$BUILD_ROOT/.build_state}"
+    
+    mkdir -p "$(dirname "$state_file")"
+    echo "$key=$value" >> "$state_file"
+}
+
 create_checkpoint() {
     local phase="$1"
     local data="${2:-}"

@@ -18,6 +18,13 @@ SCRIPT_STATUS="PRODUCTION-READY"
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$SCRIPT_DIR"
 
+# Initialize critical variables early to prevent unbound variable errors
+BUILD_ROOT="${BUILD_ROOT:-/tmp/build}"
+CHROOT_DIR="$BUILD_ROOT/chroot"
+MODULE_DIR="$REPO_ROOT/src/modules"
+PYTHON_DIR="$REPO_ROOT/src/python"
+CONFIG_DIR="$REPO_ROOT/src/config"
+
 # Colors for output
 if [[ -t 1 ]] && command -v tput >/dev/null 2>&1 && [[ $(tput colors 2>/dev/null) -ge 8 ]]; then
     RED='\033[0;31m'
@@ -186,6 +193,19 @@ mount_chroot_filesystems() {
 }
 
 unmount_chroot_filesystems() {
+    # GUARD CLAUSE: Prevent recursive unmount calls
+    if [[ "${UNMOUNT_IN_PROGRESS:-0}" == "1" ]]; then
+        echo "[WARNING] Unmount already in progress, skipping recursive call"
+        return 0
+    fi
+    
+    export UNMOUNT_IN_PROGRESS=1
+    
+    # Disable error trap for cleanup
+    local prev_errexit=$(set +o | grep errexit)
+    set +e
+    trap - ERR
+    
     local chroot_path="$1"
     local mount_points=(
         "$chroot_path/dev/pts"
@@ -199,12 +219,14 @@ unmount_chroot_filesystems() {
     log_info "Unmounting chroot filesystems..."
     
     # Kill processes using chroot first
-    if command -v fuser >/dev/null 2>&1 && fuser "$chroot_path" 2>/dev/null; then
-        log_warning "Terminating processes using chroot..."
-        fuser -TERM "$chroot_path" 2>/dev/null || true
-        sleep 2
-        fuser -KILL "$chroot_path" 2>/dev/null || true
-        sleep 1
+    if command -v fuser >/dev/null 2>&1; then
+        if fuser "$chroot_path" 2>/dev/null; then
+            log_warning "Terminating processes using chroot..."
+            fuser -TERM "$chroot_path" 2>/dev/null || true
+            sleep 2
+            fuser -KILL "$chroot_path" 2>/dev/null || true
+            sleep 1
+        fi
     fi
     
     # Unmount in reverse dependency order
@@ -230,6 +252,10 @@ unmount_chroot_filesystems() {
     
     sleep 2
     log_success "Chroot filesystems unmounted"
+    
+    # Clear guard flag and always return success
+    export UNMOUNT_IN_PROGRESS=0
+    return 0
 }
 
 #=============================================================================
@@ -237,6 +263,10 @@ unmount_chroot_filesystems() {
 #=============================================================================
 
 error_handler() {
+    # Disable error trap to prevent recursion
+    trap - ERR
+    set +e
+    
     local line_no=$1
     local error_code=$2
     local command="$3"
@@ -291,6 +321,58 @@ initialize_build_state() {
 }
 
 #=============================================================================
+# MODULE STATE VERIFICATION
+#=============================================================================
+
+verify_chroot_creation_success() {
+    log_info "Verifying chroot creation success..."
+    
+    if [[ ! -d "$CHROOT_DIR" ]]; then
+        log_error "Chroot directory does not exist: $CHROOT_DIR"
+        return 1
+    fi
+    
+    # Check for essential directories
+    local critical_dirs=("bin" "usr" "etc" "var" "opt")
+    local missing_dirs=()
+    
+    for dir in "${critical_dirs[@]}"; do
+        if [[ ! -d "$CHROOT_DIR/$dir" ]]; then
+            missing_dirs+=("$dir")
+        fi
+    done
+    
+    if [[ ${#missing_dirs[@]} -gt 0 ]]; then
+        log_error "Critical directories missing from chroot: ${missing_dirs[*]}"
+        return 1
+    fi
+    
+    # Check for mmdebstrap completion marker
+    if [[ -f "$CHROOT_DIR/.mmdebstrap-complete" ]]; then
+        log_success "Chroot creation verified - mmdebstrap completion marker found"
+        local timestamp=$(cat "$CHROOT_DIR/.mmdebstrap-timestamp" 2>/dev/null || echo "unknown")
+        log_info "Chroot created at: $timestamp"
+    else
+        log_warning "No mmdebstrap completion marker, but chroot structure looks valid"
+    fi
+    
+    # Check chroot size
+    if command -v du >/dev/null 2>&1; then
+        local chroot_size=$(du -sh "$CHROOT_DIR" 2>/dev/null | cut -f1 || echo "unknown")
+        log_info "Chroot size: $chroot_size"
+        
+        # Basic size validation - chroot should be at least 200MB
+        local size_mb=$(du -sm "$CHROOT_DIR" 2>/dev/null | cut -f1 || echo "0")
+        if [[ "$size_mb" -lt 200 ]]; then
+            log_warning "Chroot size seems small ($size_mb MB) - possible incomplete installation"
+        fi
+    fi
+    
+    log_success "Chroot creation verification passed"
+    return 0
+}
+
+#=============================================================================
 # MODULE EXECUTION ENGINE
 #=============================================================================
 
@@ -333,27 +415,33 @@ execute_module() {
     
     create_checkpoint "module_${module_phase}_start" "$BUILD_ROOT" 2>/dev/null || true
     
-    # Execute module
+    # Execute module with error isolation
     local result=0
     local module_log="$LOG_DIR/module_${module_phase}.log"
     
     log_debug "Executing: $module_script with BUILD_ROOT=$BUILD_ROOT"
     
+    # ENHANCED ERROR ISOLATION: Create isolated execution environment
+    local MODULE_ERROR_HANDLING=0
+    export MODULE_ERROR_HANDLING
+    
+    # Disable error trap for module execution to prevent recursive cleanup
+    set +e
+    trap - ERR
+    
     # Special handling for mmdebstrap (no timeout to prevent chroot issues)
     if [[ "$module_name" == "mmdebootstrap/orchestrator" ]]; then
-        if DEBUG=1 VERBOSE=1 bash "$module_script" "$BUILD_ROOT" >> "$module_log" 2>&1; then
-            result=0
-        else
-            result=$?
-        fi
+        DEBUG=1 VERBOSE=1 bash "$module_script" "$BUILD_ROOT" >> "$module_log" 2>&1
+        result=$?
     else
         # Use timeout for other modules
-        if DEBUG=1 VERBOSE=1 timeout "$BUILD_TIMEOUT" bash "$module_script" "$BUILD_ROOT" >> "$module_log" 2>&1; then
-            result=0
-        else
-            result=$?
-        fi
+        DEBUG=1 VERBOSE=1 timeout "$BUILD_TIMEOUT" bash "$module_script" "$BUILD_ROOT" >> "$module_log" 2>&1
+        result=$?
     fi
+    
+    # Re-enable error handling after module execution
+    set -e
+    trap 'error_handler $LINENO $? "$BASH_COMMAND"' ERR
     
     if [[ $result -eq 0 ]]; then
         local module_end_time=$(date +%s)
@@ -366,6 +454,15 @@ execute_module() {
         
         log_success "Module completed: $module_name (${duration}s)"
         create_checkpoint "module_${module_phase}_complete" "$BUILD_ROOT" 2>/dev/null || true
+        
+        # Critical verification for chroot creation modules
+        if [[ "$module_name" == "mmdebootstrap/orchestrator" ]]; then
+            verify_chroot_creation_success || {
+                log_error "CRITICAL: Chroot creation verification failed"
+                FAILED_MODULES+=("$module_name")
+                return 1
+            }
+        fi
         
         update_build_progress "$module_name"
         
@@ -459,6 +556,18 @@ orchestrate_build() {
         ((current_module++)) || true
         
         log_info "Executing module [$current_module/$total_modules]: $module_name ($percentage%)"
+        
+        # CRITICAL VERIFICATION: Check chroot handoff between 20% and 25%
+        if [[ "$percentage" == "25" ]]; then
+            log_info "=== CRITICAL HANDOFF VERIFICATION (20% -> 25%) ==="
+            if ! verify_chroot_creation_success; then
+                log_error "CRITICAL: Chroot verification failed before 25% module"
+                log_error "This indicates 20% module (mmdebstrap) did not complete properly"
+                generate_failure_report "chroot_handoff_verification" 1 "$module_name"
+                return 1
+            fi
+            log_success "Chroot handoff verification passed - proceeding to 25% module"
+        fi
         
         if execute_module "$module_name"; then
             log_success "Module completed: $module_name"
@@ -604,6 +713,18 @@ EOF
 }
 
 cleanup_on_failure() {
+    # GUARD CLAUSE: Prevent recursive cleanup calls
+    if [[ "${CLEANUP_IN_PROGRESS:-0}" == "1" ]]; then
+        echo "[WARNING] Cleanup already in progress, skipping recursive call"
+        return 0
+    fi
+    
+    export CLEANUP_IN_PROGRESS=1
+    
+    # Disable error trap to prevent recursion
+    trap - ERR
+    set +e
+    
     log_warning "Executing cleanup procedures..."
     
     # Unmount chroot if it exists
@@ -622,6 +743,10 @@ cleanup_on_failure() {
     fi
     
     log_info "Cleanup complete"
+    
+    # Clear guard flag and always return success to prevent error trap
+    export CLEANUP_IN_PROGRESS=0
+    return 0
 }
 
 #=============================================================================

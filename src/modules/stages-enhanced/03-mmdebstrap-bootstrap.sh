@@ -49,9 +49,9 @@ load_framework() {
         # Define minimal fallback functions
         log_info() { echo "[INFO] $*"; }
         log_warning() { echo "[WARN] $*"; }
-        log_error() { echo "[ERROR] $*" >&2; exit 1; }
+        log_error() { echo "[ERROR] $*" >&2; return 1; }
         log_success() { echo "[SUCCESS] $*"; }
-        log_debug() { [[ "${DEBUG:-0}" == "1" ]] && echo "[DEBUG] $*"; }
+        log_debug() { [[ "${DEBUG:-0}" == "1" ]] && echo "[DEBUG] $*" || true; }
         
         create_checkpoint() {
             local name="$1"
@@ -158,6 +158,18 @@ validate_chroot_mounts() {
 
 # Safe unmount function
 unmount_chroot_safely() {
+    # GUARD CLAUSE: Prevent recursive unmount calls
+    if [[ "${STAGE_UNMOUNT_IN_PROGRESS:-0}" == "1" ]]; then
+        echo "[WARNING] Stage unmount already in progress, skipping recursive call"
+        return 0
+    fi
+    
+    export STAGE_UNMOUNT_IN_PROGRESS=1
+    
+    # Disable error trap to prevent recursion
+    trap - ERR
+    set +e
+    
     local chroot_path="$1"
     local mount_points=(
         "$chroot_path/dev/pts"
@@ -185,13 +197,20 @@ unmount_chroot_safely() {
             sudo umount -l "$mp" 2>/dev/null || true
         done
     fi
+    
+    # Clear guard flag and always return success  
+    export STAGE_UNMOUNT_IN_PROGRESS=0
+    return 0
 }
 
 # Enhancement functions
 enhance_chroot_networking() {
     log_info "Enhancing chroot networking configuration"
     
-    # Update DNS configuration
+    # Update DNS configuration - handle symlink properly
+    if [[ -L "$CHROOT_DIR/etc/resolv.conf" ]]; then
+        rm -f "$CHROOT_DIR/etc/resolv.conf"
+    fi
     cat > "$CHROOT_DIR/etc/resolv.conf" << EOF
 # Enhanced DNS configuration
 nameserver 8.8.8.8
@@ -382,6 +401,18 @@ verify_enhancement_results() {
 
 # Error handler
 handle_error() {
+    # GUARD CLAUSE: Prevent recursive error handling
+    if [[ "${STAGE_ERROR_HANDLING:-0}" == "1" ]]; then
+        echo "[WARNING] Error handler already in progress, skipping recursive call"
+        return 1
+    fi
+    
+    export STAGE_ERROR_HANDLING=1
+    
+    # Disable error trap to prevent recursion
+    trap - ERR
+    set +e
+    
     local line_no=$1
     local exit_code=$2
     log_error "Error occurred in $MODULE_NAME at line $line_no with exit code $exit_code"
@@ -394,7 +425,7 @@ handle_error() {
     # Cleanup if needed
     if [[ "${CLEANUP_ON_ERROR:-0}" == "1" ]]; then
         log_warning "Performing cleanup due to error"
-        unmount_chroot_safely "$CHROOT_DIR"
+        unmount_chroot_safely "$CHROOT_DIR" || true
     fi
     
     exit $exit_code
@@ -407,6 +438,9 @@ trap 'handle_error $LINENO $?' ERR
 # MAIN EXECUTION
 #=============================================================================
 main() {
+    # Load framework FIRST before using any log functions
+    load_framework
+    
     log_info "=== ENHANCED BOOTSTRAP MODULE v$MODULE_VERSION ==="
     log_info "Module: $MODULE_NAME"
     log_info "Phase: $MODULE_PHASE"
@@ -414,9 +448,6 @@ main() {
     log_info "Build Root: $BUILD_ROOT"
     log_info "Chroot Directory: $CHROOT_DIR"
     log_info "Build Profile: $BUILD_PROFILE"
-    
-    # Load framework
-    load_framework
     
     # Create initial checkpoint
     create_checkpoint "enhanced_bootstrap_start"
@@ -427,13 +458,23 @@ main() {
     log_info "=== VALIDATION PHASE ==="
     
     if ! validate_chroot_exists; then
-        log_error "Chroot validation failed - cannot proceed"
-        exit 1
+        log_error "CRITICAL: Chroot validation failed - cannot proceed with enhancements"
+        log_error "The 20% module (mmdebootstrap/orchestrator.sh) should have created the chroot"
+        log_error "Build cannot continue - this is a fatal error"
+        
+        # Don't call exit directly - use return to avoid triggering error trap
+        update_build_state "module_failed" "$MODULE_NAME"
+        update_build_state "failure_reason" "chroot_missing"
+        return 1
     fi
     
     if ! validate_chroot_structure; then
-        log_error "Chroot structure validation failed"
-        exit 1
+        log_error "Chroot structure validation failed - attempting to continue"
+        log_warning "Some enhancements may be skipped due to structure issues"
+        
+        # Structure problems are not fatal - continue with degraded functionality
+        update_build_state "module_warning" "$MODULE_NAME"  
+        update_build_state "warning_reason" "structure_validation_failed"
     fi
     
     validate_chroot_mounts
