@@ -1,33 +1,24 @@
 #!/bin/bash
 #
-# BUILD ORCHESTRATOR v3.2 - MASTER CONTROL SCRIPT
-# CLASSIFICATION: OPERATIONAL
-# DESIGNATION: TACTICAL_BUILD_COMMAND
-# STATUS: WEAPONS FREE - PRECISION ENGAGEMENT MODE
+# BUILD ORCHESTRATOR v3.3 - MASTER CONTROL SCRIPT  
+# Fixed version with proper chroot handling and safety improvements
 #
-# Mission: Coordinate all build modules for ISO generation
-# ROE: Evidence-based engagement, quantified precision only
-# Doctrine: Search and destroy ambiguity, intelligence drives operations
-#
-
 set -eEuo pipefail
 IFS=$'\n\t'
 
 #=============================================================================
-# TACTICAL CONFIGURATION - OPERATIONAL PARAMETERS
+# CONFIGURATION
 #=============================================================================
 
-# Script metadata
 SCRIPT_NAME="build-orchestrator"
-SCRIPT_VERSION="3.2.0"
+SCRIPT_VERSION="3.3.0"
 SCRIPT_STATUS="PRODUCTION-READY"
-CLASSIFICATION="OPERATIONAL"
 
-# Establish command structure
+# Establish paths
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$SCRIPT_DIR"
 
-# Color coding for tactical display
+# Colors for output
 if [[ -t 1 ]] && command -v tput >/dev/null 2>&1 && [[ $(tput colors 2>/dev/null) -ge 8 ]]; then
     RED='\033[0;31m'
     GREEN='\033[0;32m'
@@ -40,115 +31,106 @@ else
 fi
 
 #=============================================================================
-# INTELLIGENCE SOURCES - COMMON FUNCTIONS RECONNAISSANCE
+# SOURCE COMMON FUNCTIONS
 #=============================================================================
 
-# Source common functions from strategic locations
 source_common_functions() {
     local common_found=false
+    local search_paths=(
+        "$REPO_ROOT/common_module_functions.sh"
+        "$REPO_ROOT/src/modules/common_module_functions.sh"
+        "$REPO_ROOT/src/python/common_module_functions.sh"
+    )
     
-    # Primary theater: Root directory
-    if [[ -f "$REPO_ROOT/common_module_functions.sh" ]]; then
-        source "$REPO_ROOT/common_module_functions.sh"
-        common_found=true
-        log_info "Common functions loaded from root theater"
-        
-    # Secondary theater: src/modules
-    elif [[ -f "$REPO_ROOT/src/modules/common_module_functions.sh" ]]; then
-        source "$REPO_ROOT/src/modules/common_module_functions.sh"
-        common_found=true
-        log_info "Common functions loaded from modules theater"
-        
-    # Tertiary theater: src/python
-    elif [[ -f "$REPO_ROOT/src/python/common_module_functions.sh" ]]; then
-        source "$REPO_ROOT/src/python/common_module_functions.sh"
-        common_found=true
-        log_info "Common functions loaded from python theater"
-    fi
+    for path in "${search_paths[@]}"; do
+        if [[ -f "$path" ]]; then
+            source "$path"
+            common_found=true
+            log_info "Common functions loaded from $path"
+            break
+        fi
+    done
     
     if [[ "$common_found" == "false" ]]; then
-        # Fallback tactical logging
+        # Fallback logging functions
         log_info() { echo -e "${BLUE}[INFO]${RESET} $*"; }
         log_error() { echo -e "${RED}[ERROR]${RESET} $*" >&2; exit 1; }
         log_warning() { echo -e "${YELLOW}[WARN]${RESET} $*"; }
         log_success() { echo -e "${GREEN}[SUCCESS]${RESET} $*"; }
         log_debug() { [[ "${DEBUG:-0}" == "1" ]] && echo -e "${CYAN}[DEBUG]${RESET} $*"; }
         
-        log_error "TACTICAL FAILURE: Common functions not found in any theater"
+        log_error "Common functions not found in any location"
     fi
 }
 
-# Initialize command structure
 source_common_functions
 
 #=============================================================================
-# BUILD ENVIRONMENT - BATTLEFIELD PREPARATION
+# BUILD ENVIRONMENT SETUP
 #=============================================================================
 
-# Build directories and parameters
-# Use RAM disk for build if available (much faster)
-if [[ -z "${BUILD_ROOT:-}" ]]; then
-    if [[ -d /dev/shm ]] && [[ $(df -BG /dev/shm 2>/dev/null | tail -1 | awk '{print $4}' | sed 's/G//') -ge 20 ]]; then
-        BUILD_ROOT="/dev/shm/build"
-        echo -e "Using RAM disk for build: /dev/shm (faster performance)"
-    elif mountpoint -q /tmp/ramdisk-build 2>/dev/null; then
-        BUILD_ROOT="/tmp/ramdisk-build"
-        echo -e "Using existing RAM disk mount: /tmp/ramdisk-build"
-    else
-        # Try to create dedicated tmpfs mount for build
-        if [[ ! -d /tmp/ramdisk-build ]]; then
-            mkdir -p /tmp/ramdisk-build 2>/dev/null || true
-            if mount -t tmpfs -o size=25G tmpfs /tmp/ramdisk-build 2>/dev/null; then
-                BUILD_ROOT="/tmp/ramdisk-build"
-                echo -e "Created 25G tmpfs RAM disk for build"
+setup_build_environment() {
+    # Safer RAM disk logic - only use existing or explicitly requested
+    if [[ -z "${BUILD_ROOT:-}" ]]; then
+        if [[ "${USE_RAMDISK:-}" == "1" ]] && [[ -d /dev/shm ]]; then
+            local available_gb
+            available_gb=$(df -BG /dev/shm 2>/dev/null | tail -1 | awk '{print $4}' | sed 's/G//')
+            if [[ "$available_gb" -ge 25 ]]; then
+                BUILD_ROOT="/dev/shm/build"
+                log_info "Using RAM disk: /dev/shm (requested via USE_RAMDISK=1)"
             else
+                log_warning "Insufficient RAM for build (need 25GB, have ${available_gb}GB)"
                 BUILD_ROOT="/tmp/build"
-                echo -e "Could not create tmpfs, using disk: /tmp/build (slower)"
             fi
+        elif mountpoint -q /tmp/ramdisk-build 2>/dev/null; then
+            BUILD_ROOT="/tmp/ramdisk-build"
+            log_info "Using existing RAM disk: /tmp/ramdisk-build"
         else
             BUILD_ROOT="/tmp/build"
+            log_info "Using disk storage: /tmp/build"
         fi
     fi
-fi
-BUILD_ROOT="${BUILD_ROOT:-/tmp/build}"
-CHROOT_DIR="$BUILD_ROOT/chroot"
-ISO_DIR="$BUILD_ROOT/iso"
-ISO_OUTPUT="$BUILD_ROOT/ubuntu.iso"  # Keep ISO in RAM!
-MODULE_DIR="$REPO_ROOT/src/modules"
-PYTHON_DIR="$REPO_ROOT/src/python"
-CONFIG_DIR="$REPO_ROOT/src/config"
-CHECKPOINT_DIR="$BUILD_ROOT/.checkpoints"
-METRICS_DIR="$BUILD_ROOT/.metrics"
-LOG_DIR="$BUILD_ROOT/.logs"
-LOG_FILE="$BUILD_ROOT/build-$(date +%Y%m%d-%H%M%S).log"
+    
+    # Build paths
+    BUILD_ROOT="${BUILD_ROOT:-/tmp/build}"
+    CHROOT_DIR="$BUILD_ROOT/chroot"
+    ISO_DIR="$BUILD_ROOT/iso"
+    ISO_OUTPUT="$BUILD_ROOT/ubuntu.iso"
+    MODULE_DIR="$REPO_ROOT/src/modules"
+    PYTHON_DIR="$REPO_ROOT/src/python"
+    CONFIG_DIR="$REPO_ROOT/src/config"
+    CHECKPOINT_DIR="$BUILD_ROOT/.checkpoints"
+    METRICS_DIR="$BUILD_ROOT/.metrics"
+    LOG_DIR="$BUILD_ROOT/.logs"
+    LOG_FILE="$BUILD_ROOT/build-$(date +%Y%m%d-%H%M%S).log"
+    
+    # Operational parameters
+    MAX_PARALLEL_JOBS="${MAX_PARALLEL_JOBS:-$(nproc)}"
+    BUILD_TIMEOUT="${BUILD_TIMEOUT:-14400}"  # 4 hours
+    CHECKPOINT_INTERVAL="${CHECKPOINT_INTERVAL:-300}"  # 5 minutes
+}
 
-# Operational parameters - MIL-SPEC THERMAL TOLERANCE
-MAX_PARALLEL_JOBS="${MAX_PARALLEL_JOBS:-$(nproc)}"
-BUILD_TIMEOUT="${BUILD_TIMEOUT:-14400}"  # 4 hours for thermal throttling
-CHECKPOINT_INTERVAL="${CHECKPOINT_INTERVAL:-300}"  # 5 minutes
-THERMAL_RESILIENCE=true  # Mil-spec: Ignore thermal throttling, mission continues
-
-# Module execution order - TACTICAL SEQUENCE
+# Module execution order
 declare -A MODULE_EXECUTION_ORDER=(
     [10]="dependency-validation"
     [15]="environment-setup" 
-    [20]="mmdebootstrap/orchestrator"         # MMDEBootstrap integration - CREATES CHROOT
-    [25]="stages-enhanced/03-mmdebstrap-bootstrap"  # VERIFY & ENHANCE existing chroot
-    [26]="package-installation"    # CRITICAL - Installs all packages
-    [28]="chroot-dependencies"      # Install all dependencies in chroot
-    [30]="config-apply"              # Apply configs to chroot AFTER it exists
-    [35]="zfs-builder"              # Build ZFS 2.3.4 from source if needed
-    [38]="dell-cctk-builder"        # Build Dell CCTK and TPM2 tools
+    [20]="mmdebootstrap/orchestrator"
+    [25]="stages-enhanced/03-mmdebstrap-bootstrap"
+    [26]="package-installation"
+    [28]="chroot-dependencies"
+    [30]="config-apply"
+    [35]="zfs-builder"
+    [38]="dell-cctk-builder"
     [40]="kernel-compilation"
-    [50]="system-configuration"      # Configure system with BTRFS support
-    [55]="boot-configuration"        # Configure bootloader and boot files  
-    [60]="initramfs-generation"     # Generate initramfs with BTRFS/ZFS support
-    [65]="iso-assembly"             # Create bootable ISO image
-    [70]="validation"               # Validate completed ISO
+    [50]="system-configuration"
+    [55]="boot-configuration"
+    [60]="initramfs-generation"
+    [65]="iso-assembly"
+    [70]="validation"
     [90]="finalization"
 )
 
-# Mission state tracking
+# Build state tracking
 declare -g BUILD_START_TIME=0
 declare -g BUILD_PHASE=""
 declare -g BUILD_PROGRESS=0
@@ -157,9 +139,101 @@ declare -g FAILED_MODULES=()
 declare -g COMPLETED_MODULES=()
 declare -g SKIPPED_MODULES=()
 declare -g MODULE_METRICS=()
+declare -g BUILD_PID_FILE=""
 
 #=============================================================================
-# ERROR HANDLING - CASUALTY MANAGEMENT
+# CHROOT MOUNT MANAGEMENT
+#=============================================================================
+
+mount_chroot_filesystems() {
+    local chroot_path="$1"
+    
+    if [[ ! -d "$chroot_path" ]]; then
+        log_error "Chroot directory does not exist: $chroot_path"
+        return 1
+    fi
+    
+    log_info "Mounting chroot filesystems..."
+    
+    # Create mount points
+    local mount_dirs=("proc" "sys" "dev" "dev/pts" "dev/shm" "tmp")
+    for dir in "${mount_dirs[@]}"; do
+        mkdir -p "$chroot_path/$dir" 2>/dev/null || true
+    done
+    
+    # Mount in dependency order
+    if ! mountpoint -q "$chroot_path/proc" 2>/dev/null; then
+        mount -t proc proc "$chroot_path/proc" || log_warning "Failed to mount proc"
+    fi
+    
+    if ! mountpoint -q "$chroot_path/sys" 2>/dev/null; then
+        mount -t sysfs sysfs "$chroot_path/sys" || log_warning "Failed to mount sys"
+    fi
+    
+    if ! mountpoint -q "$chroot_path/dev" 2>/dev/null; then
+        mount --bind /dev "$chroot_path/dev" || log_warning "Failed to bind mount dev"
+    fi
+    
+    if ! mountpoint -q "$chroot_path/dev/pts" 2>/dev/null; then
+        mount -t devpts devpts "$chroot_path/dev/pts" || log_warning "Failed to mount devpts"
+    fi
+    
+    if ! mountpoint -q "$chroot_path/dev/shm" 2>/dev/null; then
+        mount -t tmpfs tmpfs "$chroot_path/dev/shm" || log_warning "Failed to mount shm"
+    fi
+    
+    log_success "Chroot filesystems mounted"
+}
+
+unmount_chroot_filesystems() {
+    local chroot_path="$1"
+    local mount_points=(
+        "$chroot_path/dev/pts"
+        "$chroot_path/dev/shm"  
+        "$chroot_path/dev"
+        "$chroot_path/proc"
+        "$chroot_path/sys"
+        "$chroot_path/tmp"
+    )
+    
+    log_info "Unmounting chroot filesystems..."
+    
+    # Kill processes using chroot first
+    if command -v fuser >/dev/null 2>&1 && fuser "$chroot_path" 2>/dev/null; then
+        log_warning "Terminating processes using chroot..."
+        fuser -TERM "$chroot_path" 2>/dev/null || true
+        sleep 2
+        fuser -KILL "$chroot_path" 2>/dev/null || true
+        sleep 1
+    fi
+    
+    # Unmount in reverse dependency order
+    for mount_point in "${mount_points[@]}"; do
+        if mountpoint -q "$mount_point" 2>/dev/null; then
+            log_debug "Unmounting $mount_point"
+            if ! umount "$mount_point" 2>/dev/null; then
+                log_warning "Normal unmount failed for $mount_point, trying lazy unmount..."
+                umount -l "$mount_point" 2>/dev/null || log_warning "Failed to unmount $mount_point"
+            fi
+        fi
+    done
+    
+    # Check for remaining mounts
+    if mount | grep -q "$chroot_path"; then
+        log_warning "Some mounts still active, attempting cleanup..."
+        mount | grep "$chroot_path" | while IFS= read -r line; do
+            mount_point=$(echo "$line" | awk '{print $3}')
+            log_debug "Force unmounting: $mount_point"
+            umount "$mount_point" 2>/dev/null || umount -l "$mount_point" 2>/dev/null || true
+        done
+    fi
+    
+    sleep 2
+    log_success "Chroot filesystems unmounted"
+}
+
+#=============================================================================
+# ERROR HANDLING
 #=============================================================================
 
 error_handler() {
@@ -167,15 +241,12 @@ error_handler() {
     local error_code=$2
     local command="$3"
     
-    log_error "TACTICAL FAILURE at line $line_no (exit code: $error_code)"
+    log_error "Build failed at line $line_no (exit code: $error_code)"
     log_error "Failed command: $command"
     log_error "Build phase: $BUILD_PHASE"
     log_error "Build progress: ${BUILD_PROGRESS}%"
     
-    # Generate casualty report
     generate_failure_report "$line_no" "$error_code" "$command"
-    
-    # Cleanup operations
     cleanup_on_failure
     
     exit $error_code
@@ -184,41 +255,43 @@ error_handler() {
 trap 'error_handler $LINENO $? "$BASH_COMMAND"' ERR
 
 #=============================================================================
-# BATTLEFIELD MANAGEMENT - BUILD STATE CONTROL
+# BUILD STATE MANAGEMENT
 #=============================================================================
 
 initialize_build_state() {
+    setup_build_environment
+    
     BUILD_START_TIME=$(date +%s)
     BUILD_PHASE="INITIALIZATION"
     BUILD_PROGRESS=0
     BUILD_STATUS="ACTIVE"
+    BUILD_PID_FILE="$BUILD_ROOT/.build.pid"
     
-    log_info "=== BUILD ORCHESTRATION INITIALIZATION ==="
+    log_info "=== BUILD ORCHESTRATION START ==="
     log_info "Script: $SCRIPT_NAME v$SCRIPT_VERSION"
-    log_info "Classification: $CLASSIFICATION"
     log_info "Build root: $BUILD_ROOT"
     log_info "Module directory: $MODULE_DIR"
     log_info "Started: $(date -Iseconds)"
     
-    # Create operational directories
-    safe_mkdir "$BUILD_ROOT" 755
-    safe_mkdir "$CHECKPOINT_DIR" 755
-    safe_mkdir "$METRICS_DIR" 755 
-    safe_mkdir "$LOG_DIR" 755
-    
-    # Create initial checkpoint
-    create_checkpoint "build_start" "$BUILD_ROOT"
+    # Create build directories
+    local dirs=("$BUILD_ROOT" "$CHECKPOINT_DIR" "$METRICS_DIR" "$LOG_DIR")
+    for dir in "${dirs[@]}"; do
+        mkdir -p "$dir" || log_error "Failed to create directory: $dir"
+    done
     
     # Create build tracking files
-    echo "$$" > "$BUILD_ROOT/.build.pid"
+    echo "$$" > "$BUILD_PID_FILE"
     echo "$(date -Iseconds)" > "$BUILD_ROOT/.build.start"
     echo "0%" > "$METRICS_DIR/progress.txt"
     
-    log_success "Build state initialized - WEAPONS FREE"
+    # Create initial checkpoint
+    create_checkpoint "build_start" "$BUILD_ROOT" 2>/dev/null || true
+    
+    log_success "Build state initialized"
 }
 
 #=============================================================================
-# MODULE EXECUTION ENGINE - FORCE DEPLOYMENT
+# MODULE EXECUTION ENGINE
 #=============================================================================
 
 execute_module() {
@@ -229,58 +302,45 @@ execute_module() {
     
     BUILD_PHASE="$module_phase"
     
-    # Check if module should be skipped (from checkpoint)
+    # Check if module already completed
     if [[ -f "$CHECKPOINT_DIR/completed_modules" ]] && grep -qx "$module_name" "$CHECKPOINT_DIR/completed_modules"; then
-        log_info "Module $module_name already completed (checkpoint), skipping..."
+        log_info "Module $module_name already completed, skipping..."
         COMPLETED_MODULES+=("$module_name")
         return 0
     fi
     
-    # Save current module for monitoring
     echo "$module_name" > "$CHECKPOINT_DIR/current_module"
     
-    # Determine module script location
+    # Fix module path resolution
     if [[ "$module_name" == *"/"* ]]; then
         # Subdirectory module (e.g., mmdebootstrap/orchestrator)
         module_script="$MODULE_DIR/${module_name}.sh"
     else
-        # Root level module
+        # Root level module  
         module_script="$MODULE_DIR/${module_name}.sh"
     fi
     
     # Validate module exists
     if [[ ! -f "$module_script" ]]; then
-        log_error "TACTICAL FAILURE: Module not found - $module_script"
+        log_error "Module not found: $module_script"
         FAILED_MODULES+=("$module_name")
         return 1
     fi
     
-    log_info "=== DEPLOYING MODULE: $module_name ==="
-    log_info "Script location: $module_script"
+    log_info "=== EXECUTING MODULE: $module_name ==="
+    log_info "Script: $module_script"
     log_info "Phase: $module_phase"
     
-    # Create module checkpoint
-    create_checkpoint "module_${module_phase}_start" "$BUILD_ROOT"
+    create_checkpoint "module_${module_phase}_start" "$BUILD_ROOT" 2>/dev/null || true
     
-    # Execute module with timeout and error handling
+    # Execute module
     local result=0
     local module_log="$LOG_DIR/module_${module_phase}.log"
     
-    # Enable verbose logging
-    log_info "Executing with verbose output enabled"
-    log_debug "Module script: $module_script"
-    log_debug "Build root: $BUILD_ROOT"
-    log_debug "Log file: $module_log"
+    log_debug "Executing: $module_script with BUILD_ROOT=$BUILD_ROOT"
     
-    # Execute with verbose flag and full output - MIL-SPEC THERMAL RESILIENCE
-    if [[ "$THERMAL_RESILIENCE" == true ]]; then
-        log_info "MIL-SPEC MODE: Thermal throttling tolerance enabled - 100°C operational"
-    fi
-    
-    # Execute module with simple redirection to avoid process duplication
-    # Special handling for mmdebstrap to prevent timeout/process issues
+    # Special handling for mmdebstrap (no timeout to prevent chroot issues)
     if [[ "$module_name" == "mmdebootstrap/orchestrator" ]]; then
-        # Run mmdebstrap without timeout to prevent signal/chroot issues
         if DEBUG=1 VERBOSE=1 bash "$module_script" "$BUILD_ROOT" >> "$module_log" 2>&1; then
             result=0
         else
@@ -302,120 +362,95 @@ execute_module() {
         COMPLETED_MODULES+=("$module_name")
         MODULE_METRICS+=("${module_name}:${duration}s")
         
-        # Save checkpoint
         echo "$module_name" >> "$CHECKPOINT_DIR/completed_modules"
-        "$REPO_ROOT/checkpoint-manager.sh" create "$module_name" "completed" 2>/dev/null || true
         
-        log_success "MODULE SECURED: $module_name (${duration}s)"
-        create_checkpoint "module_${module_phase}_complete" "$BUILD_ROOT"
+        log_success "Module completed: $module_name (${duration}s)"
+        create_checkpoint "module_${module_phase}_complete" "$BUILD_ROOT" 2>/dev/null || true
         
-        # Update progress based on module completion
         update_build_progress "$module_name"
         
     else
-        result=$?
         FAILED_MODULES+=("$module_name")
-        log_error "MODULE FAILED: $module_name (exit code: $result)"
+        log_error "Module failed: $module_name (exit code: $result)"
         
-        # Attempt tactical recovery
         if attempt_module_recovery "$module_name" "$result"; then
-            log_info "RECOVERY SUCCESSFUL: $module_name"
+            log_info "Module recovery successful: $module_name"
             result=0
         else
-            log_error "RECOVERY FAILED: $module_name - MISSION ABORT"
+            log_error "Module recovery failed: $module_name"
         fi
     fi
     
     return $result
 }
 
-# Update build progress based on completed modules
 update_build_progress() {
     local module_name="$1"
     
-    # Calculate progress based on module execution order
     for percentage in $(echo "${!MODULE_EXECUTION_ORDER[@]}" | tr ' ' '\n' | sort -n); do
         if [[ "${MODULE_EXECUTION_ORDER[$percentage]}" == "$module_name" ]]; then
             BUILD_PROGRESS=$percentage
             
-            # Write progress to file for external monitoring
             mkdir -p "$METRICS_DIR"
             echo "${BUILD_PROGRESS}%" > "$METRICS_DIR/progress.txt"
             echo "$(date -Iseconds) $module_name ${BUILD_PROGRESS}%" >> "$METRICS_DIR/progress.log"
             
-            log_info "BUILD PROGRESS: ${BUILD_PROGRESS}% - $module_name complete"
+            log_info "Build progress: ${BUILD_PROGRESS}% - $module_name complete"
             break
         fi
     done
 }
 
 #=============================================================================
-# MODULE RECOVERY PROTOCOLS - CASUALTY EVACUATION
+# MODULE RECOVERY
 #=============================================================================
 
 attempt_module_recovery() {
     local module_name="$1"
     local error_code="$2"
     
-    log_warning "ATTEMPTING RECOVERY: $module_name (error: $error_code)"
+    log_warning "Attempting recovery for: $module_name (error: $error_code)"
     
     case "$module_name" in
-        "dependency-validation")
-            log_info "RECOVERY: Dependencies should be installed in chroot"
-            log_info "The chroot-dependencies module will handle this"
-            return 1
-            ;;
         "mmdebootstrap/orchestrator")
-            log_info "RECOVERY: mmdebstrap module failed"
-            if [[ "$THERMAL_RESILIENCE" == true ]]; then
-                log_info "MIL-SPEC: Checking if chroot was actually created despite thermal throttling"
-                if [[ -d "$BUILD_ROOT/chroot" ]] && [[ -d "$BUILD_ROOT/chroot/usr" ]]; then
-                    log_success "MIL-SPEC RECOVERY: Chroot exists, thermal failure was post-completion crash"
-                    return 0  # Success - chroot is functional
-                fi
+            # Check if chroot was actually created despite error
+            if [[ -d "$CHROOT_DIR" ]] && [[ -d "$CHROOT_DIR/usr" ]] && [[ -f "$CHROOT_DIR/bin/bash" ]]; then
+                log_success "Chroot exists despite error, considering successful"
+                return 0
             fi
-            # No fallback - mmdebstrap is required
             return 1
             ;;
         "kernel-compilation")
-            log_info "RECOVERY: Cleaning kernel build artifacts"
-            if [[ -d "$BUILD_ROOT/chroot" ]]; then
-                chroot "$BUILD_ROOT/chroot" /bin/bash -c "make clean" 2>/dev/null || true
+            if [[ -d "$CHROOT_DIR" ]]; then
+                log_info "Cleaning kernel build artifacts"
+                chroot "$CHROOT_DIR" /bin/bash -c "cd /usr/src/linux* 2>/dev/null && make clean" 2>/dev/null || true
             fi
             return 1
             ;;
         *)
-            if [[ "$THERMAL_RESILIENCE" == true ]] && [[ "$error_code" == "124" ]]; then
-                log_info "MIL-SPEC: Timeout due to thermal throttling - extending timeline"
-                log_info "Mission continues - thermal conditions acceptable at 100°C"
-                return 1  # Still fail but with explanation
+            if [[ "$error_code" == "124" ]]; then
+                log_warning "Module timed out, may need more time"
             fi
-            log_warning "NO RECOVERY PROTOCOL: $module_name"
             return 1
             ;;
     esac
 }
 
 #=============================================================================
-# BUILD ORCHESTRATION - MISSION CONTROL
+# BUILD ORCHESTRATION
 #=============================================================================
 
 orchestrate_build() {
     local build_type="${1:-standard}"
     local custom_config="${2:-}"
     
-    log_info "=== BUILD ORCHESTRATION START ==="
+    log_info "=== BUILD ORCHESTRATION ==="
     log_info "Build type: $build_type"
     log_info "Configuration: ${custom_config:-default}"
     log_info "Modules to execute: ${#MODULE_EXECUTION_ORDER[@]}"
     
-    # NOTE: Dependencies will be installed inside chroot after it's created
-    # The chroot-dependencies module handles this at 28% completion
-    log_info "Dependencies will be installed in chroot after creation"
-    
     initialize_build_state
     
-    # Execute modules in tactical sequence
     local total_modules=${#MODULE_EXECUTION_ORDER[@]}
     local current_module=0
     
@@ -423,38 +458,36 @@ orchestrate_build() {
         local module_name="${MODULE_EXECUTION_ORDER[$percentage]}"
         ((current_module++)) || true
         
-        log_info "ENGAGING TARGET [$current_module/$total_modules]: $module_name ($percentage%)"
+        log_info "Executing module [$current_module/$total_modules]: $module_name ($percentage%)"
         
         if execute_module "$module_name"; then
-            log_success "TARGET SECURED: $module_name"
+            log_success "Module completed: $module_name"
         else
-            log_error "TARGET FAILED: $module_name - MISSION ABORT"
+            log_error "Module failed: $module_name - Build aborted"
             generate_failure_report "module_execution" 1 "$module_name"
             return 1
         fi
         
-        # Checkpoint after each module
-        create_checkpoint "progress_${percentage}" "$BUILD_ROOT"
+        create_checkpoint "progress_${percentage}" "$BUILD_ROOT" 2>/dev/null || true
     done
     
-    # Mission completion
+    # Build completion
     BUILD_STATUS="COMPLETED"
     local build_end_time=$(date +%s)
     local total_duration=$((build_end_time - BUILD_START_TIME))
     
-    log_success "=== MISSION ACCOMPLISHED ==="
+    log_success "=== BUILD COMPLETED ==="
     log_success "Total duration: ${total_duration}s"
     log_success "Modules completed: ${#COMPLETED_MODULES[@]}"
     log_success "Modules failed: ${#FAILED_MODULES[@]}"
     
-    # Generate mission report
     generate_mission_report "$total_duration"
     
     return 0
 }
 
 #=============================================================================
-# VALIDATION & VERIFICATION - INTELLIGENCE ASSESSMENT
+# VALIDATION
 #=============================================================================
 
 validate_environment() {
@@ -462,70 +495,32 @@ validate_environment() {
     
     local validation_errors=0
     
-    # Validate required directories
-    log_info "Validating directory structure..."
-    for dir in "$MODULE_DIR" "$PYTHON_DIR" "$CONFIG_DIR"; do
+    # Check directories
+    local required_dirs=("$MODULE_DIR" "$PYTHON_DIR" "$CONFIG_DIR")
+    for dir in "${required_dirs[@]}"; do
         if [[ ! -d "$dir" ]]; then
             log_error "Missing directory: $dir"
             ((validation_errors++)) || true
-        else
-            log_debug "Found directory: $dir"
         fi
     done
     
-    # Validate required scripts
-    log_info "Validating required scripts..."
-    local required_scripts=(
-        "install_all_dependencies.sh"
-        "deploy_persist.sh"
-        "quick-setup.sh"
-    )
-    
-    for script in "${required_scripts[@]}"; do
-        if [[ ! -f "$REPO_ROOT/$script" ]]; then
-            log_warning "Missing optional script: $script"
-        else
-            log_debug "Found script: $script"
-        fi
-    done
-    
-    # Validate modules
-    log_info "Validating build modules..."
+    # Check modules exist
     for percentage in "${!MODULE_EXECUTION_ORDER[@]}"; do
         local module_name="${MODULE_EXECUTION_ORDER[$percentage]}"
-        local module_script=""
-        
-        if [[ "$module_name" == *"/"* ]]; then
-            module_script="$MODULE_DIR/${module_name}.sh"
-        else
-            module_script="$MODULE_DIR/${module_name}.sh"
-        fi
+        local module_script="$MODULE_DIR/${module_name}.sh"
         
         if [[ ! -f "$module_script" ]]; then
             log_error "Missing module: $module_script"
             ((validation_errors++)) || true
-        else
-            log_debug "Found module: $module_script"
         fi
     done
     
-    # Check Python orchestrator
-    if [[ -f "$PYTHON_DIR/mmdebstrap_orchestrator.py" ]]; then
-        log_success "Python orchestrator available"
-    else
-        log_warning "Python orchestrator not found"
-    fi
-    
-    # System requirements
-    log_info "Validating system requirements..."
+    # Check required commands
     local required_commands=("mmdebstrap" "mksquashfs" "xorriso" "chroot" "mount")
-    
     for cmd in "${required_commands[@]}"; do
         if ! command -v "$cmd" >/dev/null 2>&1; then
             log_error "Missing command: $cmd"
             ((validation_errors++)) || true
-        else
-            log_debug "Found command: $cmd"
         fi
     done
     
@@ -539,25 +534,24 @@ validate_environment() {
 }
 
 #=============================================================================
-# REPORTING & INTELLIGENCE - AFTER ACTION REPORTS
+# REPORTING
 #=============================================================================
 
 generate_mission_report() {
     local duration="$1"
-    local report_file="$BUILD_ROOT/mission-report.txt"
+    local report_file="$BUILD_ROOT/build-report.txt"
     
     cat > "$report_file" <<EOF
-=== BUILD ORCHESTRATION MISSION REPORT ===
+=== BUILD ORCHESTRATION REPORT ===
 Generated: $(date -Iseconds)
-Classification: $CLASSIFICATION
 Script: $SCRIPT_NAME v$SCRIPT_VERSION
 
-MISSION PARAMETERS:
+BUILD PARAMETERS:
 - Build Root: $BUILD_ROOT
 - Total Duration: ${duration}s
 - Modules Executed: ${#MODULE_EXECUTION_ORDER[@]}
 
-ENGAGEMENT RESULTS:
+RESULTS:
 - Completed Modules: ${#COMPLETED_MODULES[@]}
 - Failed Modules: ${#FAILED_MODULES[@]}
 - Skipped Modules: ${#SKIPPED_MODULES[@]}
@@ -576,10 +570,9 @@ EOF
         done
     fi
     
-    echo -e "\nMISSION STATUS: ${BUILD_STATUS}" >> "$report_file"
-    echo "END REPORT" >> "$report_file"
+    echo -e "\nBUILD STATUS: ${BUILD_STATUS}" >> "$report_file"
     
-    log_success "Mission report generated: $report_file"
+    log_success "Build report generated: $report_file"
 }
 
 generate_failure_report() {
@@ -595,114 +588,132 @@ Context: $context
 Error Code: $error_code
 Details: $details
 
-BUILD STATE AT FAILURE:
+BUILD STATE:
 - Phase: $BUILD_PHASE
 - Progress: ${BUILD_PROGRESS}%
 - Status: $BUILD_STATUS
 
-COMPLETED MODULES: ${#COMPLETED_MODULES[@]}
-FAILED MODULES: ${#FAILED_MODULES[@]}
-
-TACTICAL RECOMMENDATION:
+RECOMMENDATIONS:
 1. Review module logs in $LOG_DIR
 2. Check system resources and dependencies
 3. Verify module script integrity
-4. Consider partial recovery with --continue flag
-
-END FAILURE REPORT
+4. Consider recovery with --continue flag
 EOF
 
-    log_error "Failure report generated: $failure_file"
+    log_error "Failure report: $failure_file"
 }
 
 cleanup_on_failure() {
-    log_warning "Executing failure cleanup procedures..."
+    log_warning "Executing cleanup procedures..."
     
-    # Release any locks
-    release_lock 2>/dev/null || true
+    # Unmount chroot if it exists
+    if [[ -d "$CHROOT_DIR" ]]; then
+        unmount_chroot_filesystems "$CHROOT_DIR" 2>/dev/null || true
+    fi
     
-    # Kill any background processes
-    jobs -p | xargs -r kill 2>/dev/null || true
-    
-    # Clean up temporary files if needed
-    [[ -n "${TEMP_FILES:-}" ]] && rm -f $TEMP_FILES 2>/dev/null || true
+    # Kill only our build-related processes
+    if [[ -f "$BUILD_PID_FILE" ]]; then
+        local build_pid
+        build_pid=$(cat "$BUILD_PID_FILE" 2>/dev/null || echo "")
+        if [[ -n "$build_pid" ]] && ps -p "$build_pid" >/dev/null 2>&1; then
+            kill "$build_pid" 2>/dev/null || true
+        fi
+        rm -f "$BUILD_PID_FILE"
+    fi
     
     log_info "Cleanup complete"
 }
 
 #=============================================================================
-# COMMAND INTERFACE - TACTICAL OPERATIONS
+# COMMANDS
 #=============================================================================
 
 show_help() {
     cat <<EOF
-$SCRIPT_NAME v$SCRIPT_VERSION - Build Orchestration Command
+$SCRIPT_NAME v$SCRIPT_VERSION - Build Orchestration
 
 USAGE:
     $0 [COMMAND] [OPTIONS]
 
 COMMANDS:
-    build [TYPE]     Execute full build orchestration
-                     TYPE: standard (default), minimal, development
-    
-    validate         Validate environment and modules
-    
-    status           Show current build status
-    
-    clean            Clean build directories
-    
-    help             Show this help message
+    build [TYPE]     Execute build (standard, minimal, development)
+    validate         Validate environment
+    status           Show build status  
+    clean            Clean build artifacts
+    help             Show this help
 
 OPTIONS:
-    --build-root DIR    Set build directory (default: /tmp/build)
+    --build-root DIR    Set build directory
+    --use-ramdisk       Use RAM disk for build (requires 25GB RAM)
     --debug            Enable debug output
-    --dry-run          Show what would be executed
-    --continue         Continue from last checkpoint
-    --parallel N       Set max parallel jobs (default: $(nproc))
+    --continue         Continue from checkpoint
 
 EXAMPLES:
-    $0 build                    # Standard build
-    $0 build development        # Development build  
-    $0 validate                 # Environment check
-    $0 clean                    # Clean build artifacts
-    $0 --debug build            # Debug mode build
-
-CLASSIFICATION: $CLASSIFICATION
-VERSION: $SCRIPT_VERSION
+    $0 build
+    $0 --use-ramdisk build
+    $0 validate
+    $0 clean
 EOF
 }
 
+show_build_status() {
+    if [[ -f "$CHECKPOINT_DIR/build_start" ]]; then
+        log_info "Build status: ${BUILD_STATUS:-UNKNOWN}"
+        log_info "Build root: ${BUILD_ROOT:-Not set}"
+        if [[ -f "$METRICS_DIR/progress.txt" ]]; then
+            local progress
+            progress=$(cat "$METRICS_DIR/progress.txt")
+            log_info "Progress: $progress"
+        fi
+    else
+        log_info "No build in progress"
+    fi
+}
+
+clean_build_artifacts() {
+    log_info "Cleaning build artifacts..."
+    
+    if [[ -d "$BUILD_ROOT" ]]; then
+        # Safely unmount chroot first
+        if [[ -d "$BUILD_ROOT/chroot" ]]; then
+            unmount_chroot_filesystems "$BUILD_ROOT/chroot" 2>/dev/null || true
+        fi
+        
+        log_warning "Removing: $BUILD_ROOT"
+        rm -rf "$BUILD_ROOT"
+        log_success "Build artifacts cleaned"
+    else
+        log_info "No artifacts to clean"
+    fi
+}
+
 #=============================================================================
-# MAIN EXECUTION - COMMAND DISPATCH
+# MAIN EXECUTION
 #=============================================================================
 
 main() {
     local command="${1:-help}"
-    local build_type="${2:-standard}"
+    shift || true
     
-    # Process global options
+    # Process options
     while [[ $# -gt 0 ]]; do
         case $1 in
             --build-root)
                 BUILD_ROOT="$2"
                 shift 2
                 ;;
+            --use-ramdisk)
+                export USE_RAMDISK=1
+                shift
+                ;;
             --debug)
                 export DEBUG=1
                 set -x
                 shift
                 ;;
-            --dry-run)
-                export DRY_RUN=1
-                shift
-                ;;
             --continue)
                 export CONTINUE=1
                 shift
-                ;;
-            --parallel)
-                MAX_PARALLEL_JOBS="$2"
-                shift 2
                 ;;
             -*)
                 log_error "Unknown option: $1"
@@ -716,10 +727,12 @@ main() {
     # Execute command
     case "$command" in
         build)
+            local build_type="${1:-standard}"
             if validate_environment; then
                 orchestrate_build "$build_type"
             else
-                log_error "Environment validation failed - cannot proceed with build"
+                log_error "Environment validation failed"
+                exit 1
             fi
             ;;
         validate)
@@ -742,47 +755,15 @@ main() {
     esac
 }
 
-#=============================================================================
-# UTILITY FUNCTIONS - SUPPORT OPERATIONS
-#=============================================================================
-
-show_build_status() {
-    if [[ -f "$CHECKPOINT_DIR/build_start" ]]; then
-        log_info "Build in progress or completed"
-        log_info "Build root: $BUILD_ROOT"
-        log_info "Progress: ${BUILD_PROGRESS}%"
-        log_info "Status: $BUILD_STATUS"
-        
-        if [[ -f "$BUILD_ROOT/mission-report.txt" ]]; then
-            log_info "Mission report available: $BUILD_ROOT/mission-report.txt"
-        fi
-    else
-        log_info "No build in progress"
-    fi
-}
-
-clean_build_artifacts() {
-    log_info "Cleaning build artifacts..."
-    
-    if [[ -d "$BUILD_ROOT" ]]; then
-        log_warning "Removing build directory: $BUILD_ROOT"
-        rm -rf "$BUILD_ROOT"
-        log_success "Build artifacts cleaned"
-    else
-        log_info "No build artifacts to clean"
-    fi
-}
-
-#=============================================================================
-# MISSION EXECUTION - TACTICAL DEPLOYMENT
-#=============================================================================
-
-# Verify we're running as root for build operations
+# Verify root for build operations
 if [[ "$1" == "build" ]] && [[ $EUID -ne 0 ]]; then
-    log_error "Build operations require root privileges"
-    log_info "Execute: sudo $0 $*"
+    log_error "Build requires root privileges"
+    log_info "Run: sudo $0 $*"
     exit 1
 fi
 
-# Execute main command
+# Set cleanup trap
+trap cleanup_on_failure EXIT INT TERM
+
+# Execute
 main "$@"
