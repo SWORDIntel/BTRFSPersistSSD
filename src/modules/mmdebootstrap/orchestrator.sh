@@ -32,8 +32,35 @@ log_info "Chroot directory: $CHROOT_DIR"
 # Check if chroot already exists
 if [[ -d "$CHROOT_DIR" ]]; then
     log_warning "Chroot directory already exists: $CHROOT_DIR"
-    log_info "Removing existing chroot..."
-    rm -rf "$CHROOT_DIR"
+    log_info "Cleaning up existing chroot safely..."
+    
+    # Kill any processes using the chroot
+    sudo fuser -k "$CHROOT_DIR" 2>/dev/null || true
+    
+    # Unmount any mounted filesystems in chroot (in proper order)
+    sudo umount "$CHROOT_DIR/dev/pts" 2>/dev/null || true
+    sudo umount "$CHROOT_DIR/dev/shm" 2>/dev/null || true  
+    sudo umount "$CHROOT_DIR/dev" 2>/dev/null || true
+    sudo umount "$CHROOT_DIR/proc" 2>/dev/null || true
+    sudo umount "$CHROOT_DIR/sys" 2>/dev/null || true
+    sudo umount "$CHROOT_DIR/run" 2>/dev/null || true
+    
+    # Verify no mounts remain
+    if mount | grep -q "$CHROOT_DIR"; then
+        log_warning "Some mounts still active, forcing lazy unmount..."
+        mount | grep "$CHROOT_DIR" | awk '{print $3}' | xargs -r sudo umount -l 2>/dev/null || true
+    fi
+    
+    # Wait a moment for unmounts to complete
+    sleep 2
+    
+    # Remove the directory
+    rm -rf "$CHROOT_DIR" || {
+        log_warning "Some readonly files remain, but continuing..."
+        # Force remove what we can
+        find "$CHROOT_DIR" -type f -exec rm -f {} + 2>/dev/null || true
+        find "$CHROOT_DIR" -type d -exec rmdir {} + 2>/dev/null || true
+    }
 fi
 
 # Create parent directory if needed
