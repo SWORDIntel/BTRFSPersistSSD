@@ -24,8 +24,9 @@ if mount | grep -q "/tmp/build"; then
 fi
 
 # Mount tmpfs without noexec/nodev restrictions
-echo -e "${GREEN}Mounting 8GB tmpfs at /tmp/build...${NC}"
-sudo mount -t tmpfs -o size=8G,mode=1777 tmpfs /tmp/build
+# With 64GB RAM, we can use much more for faster builds
+echo -e "${GREEN}Mounting 32GB tmpfs at /tmp/build...${NC}"
+sudo mount -t tmpfs -o size=32G,mode=1777 tmpfs /tmp/build
 
 # Verify mount
 if mount | grep "/tmp/build"; then
