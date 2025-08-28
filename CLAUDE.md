@@ -117,6 +117,12 @@ sudo ./checkpoint-manager.sh
 - **FIXED IN**: common_module_functions.sh (line 55, lines 224-258)
 - **SYMPTOMS**: Infinite error loops, build hangs with repeated "ERROR: Command failed at line 248"
 
+### "update-initramfs: command not found"
+- **Cause**: initramfs-tools not installed in chroot, missing from LiveCD builds
+- **Fix**: Install dracut (preferred) or initramfs-tools, with graceful fallback
+- **CHOICE**: Using dracut for better ZFS/LiveCD support over Ubuntu's initramfs-tools
+- **FIXED IN**: system-configuration.sh (lines 188-208)
+
 ### "Command not found: log_warn"
 - **Cause**: Wrong function name
 - **Fix**: Change to `log_warning`

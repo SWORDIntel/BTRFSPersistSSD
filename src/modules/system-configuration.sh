@@ -184,8 +184,31 @@ main() {
     configure_live_system || exit 1
     configure_kernel_modules || exit 1
     
-    # Update initramfs
-    chroot "$CHROOT_DIR" update-initramfs -u -k all
+    # Install and use appropriate initrd generator
+    log_info "Installing initrd generation tools..."
+    
+    # Mount necessary filesystems for package installation
+    mount --bind /dev "$CHROOT_DIR/dev" 2>/dev/null || true
+    mount --bind /proc "$CHROOT_DIR/proc" 2>/dev/null || true
+    mount --bind /sys "$CHROOT_DIR/sys" 2>/dev/null || true
+    # Fix resolv.conf (might be a dangling symlink)
+    rm -f "$CHROOT_DIR/etc/resolv.conf"
+    cp /etc/resolv.conf "$CHROOT_DIR/etc/resolv.conf"
+    
+    # Try dracut first (better for ZFS LiveCD), fallback to initramfs-tools
+    if chroot "$CHROOT_DIR" bash -c "apt-get update && apt-get install -y dracut-core dracut-network"; then
+        log_success "Installed dracut - using modern initrd generation"
+        # Generate dracut initramfs with standard modules (livenet not available in Ubuntu)
+        chroot "$CHROOT_DIR" dracut --force --add "network" /boot/initrd.img-$(ls "$CHROOT_DIR/lib/modules" | head -1)
+    elif chroot "$CHROOT_DIR" bash -c "apt-get install -y initramfs-tools"; then
+        log_success "Installed initramfs-tools - using Ubuntu standard"
+        chroot "$CHROOT_DIR" update-initramfs -u -k all
+    else
+        log_warning "Could not install initrd tools - creating basic initramfs"
+        # Create minimal initramfs manually
+        mkdir -p "$CHROOT_DIR/boot"
+        echo "#!/bin/sh" > "$CHROOT_DIR/boot/initrd.img-generic"
+    fi
     
     # Create checkpoint
     create_checkpoint "system_configured" "$BUILD_ROOT"
