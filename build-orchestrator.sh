@@ -362,7 +362,10 @@ verify_chroot_creation_success() {
         log_info "Chroot size: $chroot_size"
         
         # Basic size validation - chroot should be at least 200MB
-        local size_mb=$(du -sm "$CHROOT_DIR" 2>/dev/null | cut -f1 || echo "0")
+        local size_mb=$(du -sm "$CHROOT_DIR" 2>/dev/null | head -1 | cut -f1 || echo "0")
+        # Ensure size_mb is numeric
+        size_mb="${size_mb//[^0-9]/}"
+        size_mb="${size_mb:-0}"
         if [[ "$size_mb" -lt 200 ]]; then
             log_warning "Chroot size seems small ($size_mb MB) - possible incomplete installation"
         fi
