@@ -51,7 +51,7 @@ check_existing_zfs() {
                 log_success "ZFS ${ZFS_VERSION} already installed in chroot"
                 return 0
             else
-                log_warn "Chroot has ZFS version: ${current_version:-unknown}"
+                log_warning "Chroot has ZFS version: ${current_version:-unknown}"
                 log_info "Will build ZFS ${ZFS_VERSION} from source"
                 return 1
             fi
@@ -68,7 +68,7 @@ check_existing_zfs() {
 download_zfs_source() {
     log_info "Downloading ZFS ${ZFS_VERSION} source code..."
     
-    safe_mkdir "$ZFS_BUILD_DIR" 755
+    mkdir -p "$ZFS_BUILD_DIR"
     
     if [[ -f "$ZFS_BUILD_DIR/zfs-${ZFS_VERSION}.tar.gz" ]]; then
         log_info "Source tarball already downloaded"
@@ -197,7 +197,7 @@ build_zfs_on_host() {
     # Build ZFS
     log_info "Compiling ZFS (this may take 10-20 minutes)..."
     make -j$(nproc) || {
-        log_warn "Parallel build failed, trying single-threaded..."
+        log_warning "Parallel build failed, trying single-threaded..."
         make || {
             log_error "Build failed"
             return 1
@@ -207,13 +207,13 @@ build_zfs_on_host() {
     # Build Debian packages
     log_info "Building Debian packages..."
     make deb || {
-        log_warn "Debian package build failed, will try direct install"
+        log_warning "Debian package build failed, will try direct install"
     }
     
     # Install on host (optional)
     log_info "Installing ZFS on host..."
     sudo make install || {
-        log_warn "Host installation failed, will copy to chroot"
+        log_warning "Host installation failed, will copy to chroot"
     }
     sudo ldconfig
     
@@ -225,7 +225,7 @@ copy_zfs_to_chroot() {
     log_info "Copying ZFS build to chroot..."
     
     if [[ ! -d "$CHROOT_DIR" ]]; then
-        log_warn "Chroot not available yet, skipping copy"
+        log_warning "Chroot not available yet, skipping copy"
         return 0
     fi
     
@@ -366,14 +366,14 @@ verify_zfs_installation() {
     if [[ "$installed_version" == "$ZFS_VERSION" ]]; then
         log_success "ZFS ${ZFS_VERSION} verified"
     else
-        log_warn "Version mismatch: expected ${ZFS_VERSION}, got ${installed_version:-unknown}"
+        log_warning "Version mismatch: expected ${ZFS_VERSION}, got ${installed_version:-unknown}"
     fi
     
     # Check kernel module availability
     if chroot "$CHROOT_DIR" /bin/bash -c "modinfo zfs >/dev/null 2>&1"; then
         log_success "ZFS kernel module available"
     else
-        log_warn "ZFS kernel module not found (may need DKMS rebuild)"
+        log_warning "ZFS kernel module not found (may need DKMS rebuild)"
     fi
     
     # List ZFS components
@@ -396,7 +396,7 @@ EOF
 }
 
 fallback_install_zfs_packages() {
-    log_warn "Attempting fallback installation via packages..."
+    log_warning "Attempting fallback installation via packages..."
     
     chroot "$CHROOT_DIR" /bin/bash <<'EOF'
 # Try to install ZFS from packages as fallback
@@ -453,13 +453,13 @@ main() {
             log_info "Chroot not ready, ZFS built on host for later use"
         fi
     else
-        log_warn "Source build failed, attempting package installation"
+        log_warning "Source build failed, attempting package installation"
         if fallback_install_zfs_packages; then
             configure_zfs
             verify_zfs_installation
         else
             log_error "Failed to install ZFS ${ZFS_VERSION}"
-            log_warn "System will continue without ZFS ${ZFS_VERSION}"
+            log_warning "System will continue without ZFS ${ZFS_VERSION}"
             # Don't fail the build, just warn
             exit 0
         fi

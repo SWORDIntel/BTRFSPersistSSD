@@ -367,6 +367,19 @@ stop_timer() {
 }
 
 #=============================================================================
+# DIRECTORY FUNCTIONS
+#=============================================================================
+
+safe_mkdir() {
+    local dir="$1"
+    local perms="${2:-755}"
+    
+    if [[ ! -d "$dir" ]]; then
+        mkdir -p "$dir" && chmod "$perms" "$dir"
+    fi
+}
+
+#=============================================================================
 # EXPORT ALL FUNCTIONS
 #=============================================================================
 
@@ -377,3 +390,4 @@ export -f save_state load_state
 export -f error_handler retry_with_backoff
 export -f validate_environment
 export -f start_timer stop_timer
+export -f safe_mkdir
