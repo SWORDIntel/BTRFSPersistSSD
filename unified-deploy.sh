@@ -426,8 +426,8 @@ main() {
         build)
             check_root
             
-            # Install dependencies first
-            install_host_dependencies || exit 1
+            # NOTE: Dependencies will be installed in chroot during build
+            # Only validate basic host tools needed for build
             
             validate_environment || exit 1
             

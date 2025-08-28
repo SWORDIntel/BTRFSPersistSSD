@@ -46,7 +46,7 @@ apply_sources_list() {
     # CRITICAL: Handle Ubuntu 24.04+ DEB822 format
     # Ubuntu 24.04 uses /etc/apt/sources.list.d/ubuntu.sources which conflicts
     if [[ -f "$target_dir/etc/apt/sources.list.d/ubuntu.sources" ]]; then
-        log_warning "Found Ubuntu DEB822 format sources file, disabling it"
+        log_warninging "Found Ubuntu DEB822 format sources file, disabling it"
         mv "$target_dir/etc/apt/sources.list.d/ubuntu.sources" \
            "$target_dir/etc/apt/sources.list.d/ubuntu.sources.disabled" 2>/dev/null || true
         log_info "Disabled ubuntu.sources to prevent conflicts"
@@ -62,7 +62,7 @@ apply_sources_list() {
         sources_file="$CONFIG_DIR/sources.list"
         log_info "Using Noble (24.04) sources.list"
     else
-        log_warning "Unknown Ubuntu version: $ubuntu_version, using default Noble sources"
+        log_warninging "Unknown Ubuntu version: $ubuntu_version, using default Noble sources"
     fi
     
     # Copy authoritative sources.list
@@ -189,7 +189,7 @@ verify_network_connectivity() {
     done
     
     if [[ "$dns_working" == "false" ]]; then
-        log_warn "DNS resolution might not be working properly"
+        log_warning "DNS resolution might not be working properly"
         log_info "This could be normal in a chroot environment"
     fi
     
@@ -198,7 +198,7 @@ verify_network_connectivity() {
         if chroot "$target_dir" /bin/bash -c "apt-get update -qq" 2>/dev/null; then
             log_success "Package repositories accessible"
         else
-            log_warn "Could not update package lists (might be normal in chroot)"
+            log_warning "Could not update package lists (might be normal in chroot)"
         fi
     else
         if apt-get update -qq 2>/dev/null; then
@@ -273,7 +273,7 @@ detect_ubuntu_version() {
         version=$(grep "DISTRIB_RELEASE" "$target_dir/etc/lsb-release" | cut -d'=' -f2)
         log_info "Detected Ubuntu version: $version"
     else
-        log_warn "Could not detect Ubuntu version, assuming 24.04 (Noble)"
+        log_warning "Could not detect Ubuntu version, assuming 24.04 (Noble)"
     fi
     
     echo "$version"
@@ -323,18 +323,18 @@ main() {
         log_info "Updating package lists..."
         apt-get update --allow-unauthenticated --allow-insecure-repositories 2>&1 | grep -v "404  Not Found" || {
             if apt-cache policy | grep -q "archive.ubuntu.com"; then
-                log_warn "Some repositories failed but main repos are available"
+                log_warning "Some repositories failed but main repos are available"
             else
-                log_warn "Failed to update package lists"
+                log_warning "Failed to update package lists"
             fi
         }
     elif [[ "$TARGET" == "chroot" ]]; then
         log_info "Updating package lists in chroot..."
         chroot "$CHROOT_DIR" apt-get update --allow-unauthenticated --allow-insecure-repositories 2>&1 | grep -v "404  Not Found" || {
             if chroot "$CHROOT_DIR" apt-cache policy | grep -q "archive.ubuntu.com"; then
-                log_warn "Some repositories failed but main repos are available"
+                log_warning "Some repositories failed but main repos are available"
             else
-                log_warn "Failed to update package lists in chroot"
+                log_warning "Failed to update package lists in chroot"
             fi
         }
     fi
