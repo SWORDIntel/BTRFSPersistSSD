@@ -67,39 +67,9 @@ EOF
     log_success "APT cache configured"
 }
 
-setup_debootstrap() {
-    log_info "Initializing debootstrap environment..."
-    
-    # Check if chroot already exists
-    if [[ -f "$CHROOT_DIR/bin/bash" ]]; then
-        log_warning "Chroot already exists, skipping debootstrap"
-        return 0
-    fi
-    
-    # Create checkpoint before debootstrap
-    create_checkpoint "pre_debootstrap" "$BUILD_ROOT"
-    
-    # Run debootstrap
-    log_info "Running debootstrap (this may take 5-10 minutes)..."
-    
-    if debootstrap \
-        --arch="$ARCH" \
-        --variant=minbase \
-        --include=systemd,systemd-sysv,dbus,apt-utils \
-        "$DEBIAN_RELEASE" \
-        "$CHROOT_DIR" \
-        http://archive.ubuntu.com/ubuntu; then
-        log_success "Debootstrap completed"
-    else
-        log_error "Debootstrap failed"
-        return 1
-    fi
-    
-    # Create post-debootstrap checkpoint
-    create_checkpoint "post_debootstrap" "$BUILD_ROOT"
-    
-    return 0
-}
+# REMOVED: setup_debootstrap function 
+# Chroot creation is handled by mmdeboostrap module at 20%
+# This module should ONLY prepare directories, not create chroot
 
 configure_chroot_mounts() {
     log_info "Configuring chroot mount points..."
