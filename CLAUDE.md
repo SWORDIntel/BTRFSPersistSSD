@@ -135,6 +135,13 @@ sudo ./checkpoint-manager.sh
 - **Fix**: Module at 25% should verify, not create
 - **FIXED IN**: stages-enhanced/03-mmdebstrap-bootstrap.sh (lines 148-174)
 
+### "Build stalls at mmdebstrap stage (5% progress)"
+- **Cause**: Pipeline deadlock in build orchestrator's logging mechanism
+- **Fix**: Use process substitution instead of pipeline for module logging
+- **FIXED IN**: build-orchestrator.sh (line 278)
+- **Details**: `| tee -a "$module_log"` changed to `> >(tee -a "$module_log") 2>&1`
+- **Resolution**: Modules complete successfully but orchestrator hangs on logging pipeline
+
 ### Package installation timeouts
 - **Cause**: Package already installed or actually hanging
 - **Fix**: Check problematic-packages.list, increase timeout, or skip
