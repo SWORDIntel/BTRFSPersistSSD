@@ -46,7 +46,7 @@ apply_sources_list() {
     # CRITICAL: Handle Ubuntu 24.04+ DEB822 format
     # Ubuntu 24.04 uses /etc/apt/sources.list.d/ubuntu.sources which conflicts
     if [[ -f "$target_dir/etc/apt/sources.list.d/ubuntu.sources" ]]; then
-        log_warninging "Found Ubuntu DEB822 format sources file, disabling it"
+        log_warning "Found Ubuntu DEB822 format sources file, disabling it"
         mv "$target_dir/etc/apt/sources.list.d/ubuntu.sources" \
            "$target_dir/etc/apt/sources.list.d/ubuntu.sources.disabled" 2>/dev/null || true
         log_info "Disabled ubuntu.sources to prevent conflicts"
@@ -62,7 +62,7 @@ apply_sources_list() {
         sources_file="$CONFIG_DIR/sources.list"
         log_info "Using Noble (24.04) sources.list"
     else
-        log_warninging "Unknown Ubuntu version: $ubuntu_version, using default Noble sources"
+        log_warning "Unknown Ubuntu version: $ubuntu_version, using default Noble sources"
     fi
     
     # Copy authoritative sources.list
