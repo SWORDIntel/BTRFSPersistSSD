@@ -21,8 +21,8 @@ echo "Killing existing build processes..."
 sudo pkill -f build-orchestrator || true
 sudo pkill -f "bash.*modules" || true
 
-# Start from zfs-builder
-echo "Starting from ZFS builder module..."
-sudo BUILD_ROOT="$BUILD_ROOT" ./build-orchestrator.sh build-from 35
+# Start with continue flag to resume from checkpoint
+echo "Starting build with --continue flag..."
+sudo BUILD_ROOT="$BUILD_ROOT" ./build-orchestrator.sh build --continue
 
-echo "Build restarted from ZFS module (35%)"
+echo "Build restarted with checkpoint recovery"

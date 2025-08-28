@@ -596,6 +596,21 @@ EOF
     log_error "Failure report generated: $failure_file"
 }
 
+cleanup_on_failure() {
+    log_warning "Executing failure cleanup procedures..."
+    
+    # Release any locks
+    release_lock 2>/dev/null || true
+    
+    # Kill any background processes
+    jobs -p | xargs -r kill 2>/dev/null || true
+    
+    # Clean up temporary files if needed
+    [[ -n "${TEMP_FILES:-}" ]] && rm -f $TEMP_FILES 2>/dev/null || true
+    
+    log_info "Cleanup complete"
+}
+
 #=============================================================================
 # COMMAND INTERFACE - TACTICAL OPERATIONS
 #=============================================================================
