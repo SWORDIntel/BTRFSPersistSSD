@@ -222,30 +222,35 @@ load_state() {
 #=============================================================================
 
 error_handler() {
+    # Prevent recursive error handling
+    trap - ERR
+    set +e
+    
     local line_no="$1"
     local exit_code="${2:-$?}"
     local command="${3:-unknown}"
     
-    log_error "Command failed at line $line_no: $command (exit: $exit_code)"
+    log_error "Command failed at line $line_no: $command (exit: $exit_code)" 2>/dev/null || echo "ERROR: Command failed at line $line_no" >&2
     
-    # Save failure state
+    # Save failure state (safely)
     save_state "{
         \"status\": \"failed\",
         \"line\": $line_no,
         \"exit_code\": $exit_code,
         \"command\": \"$command\"
-    }"
+    }" 2>/dev/null || true
     
-    # Cleanup
-    release_lock
+    # Cleanup (safely)
+    release_lock 2>/dev/null || true
     
-    # Stack trace
-    log_error "Stack trace:"
+    # Simple stack trace without recursion risk
+    log_error "Stack trace:" 2>/dev/null || echo "ERROR: Stack trace:" >&2
     local frame=0
-    while caller $frame; do
-        ((frame++)) || true
-    done | while read line func file; do
-        log_error "  at $func ($file:$line)"
+    while caller $frame 2>/dev/null; do
+        frame=$((frame + 1))
+        [[ $frame -gt 10 ]] && break  # Prevent infinite loops
+    done | while IFS= read -r line || break; do
+        log_error "  $line" 2>/dev/null || echo "  $line" >&2
     done
     
     exit $exit_code
