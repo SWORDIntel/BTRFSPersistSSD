@@ -139,10 +139,11 @@ declare -A MODULE_EXECUTION_ORDER=(
     [35]="zfs-builder"              # Build ZFS 2.3.4 from source if needed
     [38]="dell-cctk-builder"        # Build Dell CCTK and TPM2 tools
     [40]="kernel-compilation"
-    [50]="system-configuration"
-    [60]="validation"
-    [70]="initramfs-generation"
-    [80]="iso-assembly"
+    [50]="system-configuration"      # Configure system with BTRFS support
+    [55]="boot-configuration"        # Configure bootloader and boot files  
+    [60]="initramfs-generation"     # Generate initramfs with BTRFS/ZFS support
+    [65]="iso-assembly"             # Create bootable ISO image
+    [70]="validation"               # Validate completed ISO
     [90]="finalization"
 )
 
