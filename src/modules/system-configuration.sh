@@ -195,11 +195,19 @@ main() {
     rm -f "$CHROOT_DIR/etc/resolv.conf"
     cp /etc/resolv.conf "$CHROOT_DIR/etc/resolv.conf"
     
+    # Install CRITICAL tools first - BTRFS is VITAL for this project
+    log_info "Installing VITAL BTRFS tools..."
+    chroot "$CHROOT_DIR" bash -c "apt-get install -y btrfs-progs util-linux e2fsprogs" || {
+        log_error "CRITICAL: Failed to install BTRFS tools - build cannot continue"
+        return 1
+    }
+    
     # Try dracut first (better for ZFS LiveCD), fallback to initramfs-tools
-    if chroot "$CHROOT_DIR" bash -c "apt-get update && apt-get install -y dracut-core dracut-network"; then
+    if chroot "$CHROOT_DIR" bash -c "apt-get install -y dracut-core dracut-network"; then
         log_success "Installed dracut - using modern initrd generation"
-        # Generate dracut initramfs with standard modules (livenet not available in Ubuntu)
-        chroot "$CHROOT_DIR" dracut --force --add "network" /boot/initrd.img-$(ls "$CHROOT_DIR/lib/modules" | head -1)
+        # Generate dracut initramfs with BTRFS support (VITAL for persistence)
+        log_info "Generating initramfs with BTRFS support..."
+        chroot "$CHROOT_DIR" dracut --force --add "btrfs network" --include /usr/bin/btrfs /usr/bin/btrfs /boot/initrd.img-$(ls "$CHROOT_DIR/lib/modules" | head -1)
     elif chroot "$CHROOT_DIR" bash -c "apt-get install -y initramfs-tools"; then
         log_success "Installed initramfs-tools - using Ubuntu standard"
         chroot "$CHROOT_DIR" update-initramfs -u -k all
