@@ -1,536 +1,482 @@
 #!/bin/bash
 #
-# ENHANCED BOOTSTRAP STAGE - 03-mmdebstrap-bootstrap.sh
-# mmdebstrap-powered bootstrap stage for the build orchestrator system
-#
-# Features:
-# - mmdebstrap bootstrap with multiple mirrors
-# - Automatic fallback to debootstrap
-# - Orchestrator checkpoint integration
-# - Build state tracking
-# - Multiple build profiles
-# - ZFS and security module integration
-#
-# Version: 3.1.0
-# Author: Build Orchestrator Integration Team
+# ENHANCED BOOTSTRAP MODULE v3.2.0
+# STAGE: 25% - Verify and enhance existing chroot
+# This module verifies the chroot created at 20% and adds enhancements
 #
 
 set -euo pipefail
 
-# Stage configuration
-STAGE_NAME="03-mmdebstrap-bootstrap"
-STAGE_VERSION="3.1.0"
-STAGE_DESCRIPTION="Enhanced Bootstrap with mmdebstrap"
+# Module configuration
+MODULE_NAME="03-mmdebstrap-bootstrap"
+MODULE_VERSION="3.2.0"
+MODULE_PHASE="25%"
+MODULE_DESC="Verify and enhance existing chroot with advanced profiles"
 
-# Environment validation
-PROJECT_ROOT="${PROJECT_ROOT:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../../../" && pwd)}"
+# Source paths
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+PROJECT_ROOT="$(cd "$SCRIPT_DIR/../../../" && pwd)"
 
-# Logging functions
-log_stage_info() {
-    echo -e "\033[0;34m[STAGE-$STAGE_NAME]\033[0m $*"
-}
+# Environment variables
+BUILD_ROOT="${BUILD_ROOT:-${1:-/tmp/build}}"
+CHROOT_DIR="${BUILD_ROOT}/chroot"
+LOG_DIR="${BUILD_ROOT}/.logs"
+STATE_FILE="${BUILD_ROOT}/.build_state"
+CHECKPOINT_DIR="${BUILD_ROOT}/checkpoints"
 
-log_stage_error() {
-    echo -e "\033[0;31m[STAGE-$STAGE_NAME ERROR]\033[0m $*" >&2
-}
+# Build profiles
+BUILD_PROFILE="${BUILD_PROFILE:-standard}"
+DEBIAN_RELEASE="${DEBIAN_RELEASE:-noble}"
+ARCH="${ARCH:-amd64}"
 
-log_stage_success() {
-    echo -e "\033[0;32m[STAGE-$STAGE_NAME SUCCESS]\033[0m $*"
-}
+# Profile definitions
+declare -A PROFILE_PACKAGES
+PROFILE_PACKAGES[minimal]="apt-utils systemd systemd-sysv dbus"
+PROFILE_PACKAGES[standard]="apt-utils systemd systemd-sysv dbus wget curl gnupg ca-certificates locales"
+PROFILE_PACKAGES[development]="${PROFILE_PACKAGES[standard]} build-essential git vim emacs"
+PROFILE_PACKAGES[zfs_optimized]="${PROFILE_PACKAGES[standard]} zfsutils-linux zfs-dkms"
+PROFILE_PACKAGES[security]="${PROFILE_PACKAGES[standard]} fail2ban ufw apparmor"
 
-log_stage_warn() {
-    echo -e "\033[1;33m[STAGE-$STAGE_NAME WARN]\033[0m $*"
-}
-
-log_stage_debug() {
-    if [[ "${DEBUG:-0}" == "1" ]]; then
-        echo -e "\033[0;36m[STAGE-$STAGE_NAME DEBUG]\033[0m $*"
-    fi
-}
-
-# Load orchestrator framework
-load_orchestrator_framework() {
-    local framework_script="${PROJECT_ROOT}/common_module_functions.sh"
+# Framework loading with fallback functions
+load_framework() {
+    local framework_script="$PROJECT_ROOT/common_module_functions.sh"
     
     if [[ -f "$framework_script" ]]; then
         source "$framework_script"
-        log_stage_info "✓ Orchestrator framework loaded"
-        export ORCHESTRATOR_FRAMEWORK_LOADED=1
+        echo "[INFO] Framework loaded from $framework_script"
         return 0
     else
-        log_stage_warn "Orchestrator framework not found at: $framework_script"
-        log_stage_warn "Running in standalone mode with limited functionality"
-        export ORCHESTRATOR_FRAMEWORK_LOADED=0
+        # Define minimal fallback functions
+        log_info() { echo "[INFO] $*"; }
+        log_warning() { echo "[WARN] $*"; }
+        log_error() { echo "[ERROR] $*" >&2; exit 1; }
+        log_success() { echo "[SUCCESS] $*"; }
+        log_debug() { [[ "${DEBUG:-0}" == "1" ]] && echo "[DEBUG] $*"; }
+        
+        create_checkpoint() {
+            local name="$1"
+            mkdir -p "$CHECKPOINT_DIR"
+            echo "$(date -Iseconds)" > "$CHECKPOINT_DIR/$name"
+            log_info "Checkpoint created: $name"
+        }
+        
+        update_build_state() {
+            local key="$1"
+            local value="$2"
+            mkdir -p "$(dirname "$STATE_FILE")"
+            echo "$key=$value" >> "$STATE_FILE"
+        }
+        
+        echo "[WARN] Framework not found, using fallback functions"
         return 1
     fi
 }
 
-# Load mmdebstrap orchestrator module
-load_mmdebstrap_module() {
-    local module_script="${PROJECT_ROOT}/src/modules/mmdebstrap/orchestrator.sh"
+# Validation functions
+validate_chroot_exists() {
+    log_info "Validating chroot existence at $CHROOT_DIR"
     
-    if [[ -f "$module_script" ]]; then
-        source "$module_script"
-        log_stage_info "✓ mmdebstrap orchestrator module loaded"
-        export MMDEBSTRAP_MODULE_LOADED=1
-        return 0
-    else
-        log_stage_error "mmdebstrap orchestrator module not found at: $module_script"
-        log_stage_error "Please run the integration setup script first"
-        log_stage_error "Expected file: $module_script"
+    if [[ ! -d "$CHROOT_DIR" ]]; then
+        log_error "CRITICAL: Chroot does not exist at $CHROOT_DIR"
+        log_error "The chroot should have been created at 20% by mmdebootstrap/orchestrator"
         return 1
     fi
+    
+    # Check for mmdebstrap markers
+    if [[ -f "$CHROOT_DIR/.mmdebstrap-complete" ]]; then
+        log_success "Found mmdebstrap completion marker"
+        log_info "Chroot created at: $(cat "$CHROOT_DIR/.mmdebstrap-timestamp" 2>/dev/null || echo "unknown")"
+    else
+        log_warning "No mmdebstrap marker found, but chroot exists - continuing"
+    fi
+    
+    return 0
 }
 
-# Validate stage environment
-validate_stage_environment() {
-    log_stage_info "Validating stage environment"
+validate_chroot_structure() {
+    log_info "Validating chroot structure integrity"
     
-    # Required environment variables
-    local required_vars=(
-        "CHROOT_DIR"
+    local critical_dirs=(
+        "bin" "boot" "dev" "etc" "home" "lib" "lib64" 
+        "opt" "proc" "root" "sbin" "sys" "tmp" 
+        "usr" "var"
     )
     
-    local missing_vars=()
-    for var in "${required_vars[@]}"; do
-        if [[ -z "${!var:-}" ]]; then
-            missing_vars+=("$var")
+    local missing_dirs=()
+    for dir in "${critical_dirs[@]}"; do
+        if [[ ! -d "$CHROOT_DIR/$dir" ]]; then
+            missing_dirs+=("$dir")
         fi
     done
     
-    if [[ ${#missing_vars[@]} -gt 0 ]]; then
-        log_stage_error "Required environment variables not set:"
-        printf '  %s\n' "${missing_vars[@]}"
-        log_stage_error "Set these variables before running this stage"
+    if [[ ${#missing_dirs[@]} -gt 0 ]]; then
+        log_error "Missing critical directories: ${missing_dirs[*]}"
         return 1
     fi
     
-    # Validate chroot directory parent exists
-    if [[ ! -d "$(dirname "$CHROOT_DIR")" ]]; then
-        log_stage_error "Chroot parent directory does not exist: $(dirname "$CHROOT_DIR")"
+    # Verify essential binaries
+    local essential_bins=(
+        "bin/bash" "bin/sh" "usr/bin/apt"
+        "usr/bin/dpkg" "bin/systemctl"
+    )
+    
+    local missing_bins=()
+    for bin in "${essential_bins[@]}"; do
+        if [[ ! -e "$CHROOT_DIR/$bin" ]] && [[ ! -L "$CHROOT_DIR/$bin" ]]; then
+            missing_bins+=("$bin")
+        fi
+    done
+    
+    if [[ ${#missing_bins[@]} -gt 0 ]]; then
+        log_error "Missing essential binaries: ${missing_bins[*]}"
         return 1
     fi
     
-    # Set defaults for optional variables
-    export BUILD_SUITE="${BUILD_SUITE:-noble}"
-    export BUILD_ARCH="${BUILD_ARCH:-amd64}"
-    export BUILD_PROFILE="${BUILD_PROFILE:-standard}"
-    
-    log_stage_info "Environment validation completed"
-    log_stage_info "Target: $CHROOT_DIR"
-    log_stage_info "Suite: $BUILD_SUITE"
-    log_stage_info "Architecture: $BUILD_ARCH"
-    log_stage_info "Profile: $BUILD_PROFILE"
-    
+    log_success "Chroot structure validation passed"
     return 0
 }
 
-# Create orchestrator checkpoint
-create_stage_checkpoint() {
-    local checkpoint_name="$1"
-    local description="$2"
+validate_chroot_mounts() {
+    log_info "Checking for active mounts in chroot"
     
-    if [[ "$ORCHESTRATOR_FRAMEWORK_LOADED" == "1" ]] && command -v create_checkpoint >/dev/null 2>&1; then
-        create_checkpoint "$checkpoint_name" "$CHROOT_DIR" "$description"
-        log_stage_debug "Checkpoint created: $checkpoint_name"
+    local mount_count=$(mount | grep -c "$CHROOT_DIR" || true)
+    
+    if [[ $mount_count -gt 0 ]]; then
+        log_warning "Found $mount_count active mounts in chroot"
+        mount | grep "$CHROOT_DIR" || true
+        
+        if [[ "${FORCE_UNMOUNT:-0}" == "1" ]]; then
+            log_warning "Force unmounting requested"
+            unmount_chroot_safely "$CHROOT_DIR"
+        else
+            log_info "Mounts will be preserved for chroot operations"
+        fi
     else
-        log_stage_debug "Checkpoint skipped (framework not loaded): $checkpoint_name"
+        log_info "No active mounts found in chroot"
     fi
 }
 
-# Enhanced bootstrap execution
-execute_enhanced_bootstrap() {
-    log_stage_info "Starting enhanced bootstrap execution"
+# Safe unmount function
+unmount_chroot_safely() {
+    local chroot_path="$1"
+    local mount_points=(
+        "$chroot_path/dev/pts"
+        "$chroot_path/dev/shm"
+        "$chroot_path/dev"
+        "$chroot_path/proc"
+        "$chroot_path/sys"
+        "$chroot_path/run"
+        "$chroot_path/tmp"
+    )
     
-    # Pre-bootstrap checkpoint
-    create_stage_checkpoint "bootstrap_start" "Enhanced bootstrap stage started"
+    for mount_point in "${mount_points[@]}"; do
+        if mountpoint -q "$mount_point" 2>/dev/null; then
+            log_info "Unmounting $mount_point"
+            sudo umount "$mount_point" 2>/dev/null || \
+                sudo umount -l "$mount_point" 2>/dev/null || \
+                log_warning "Failed to unmount $mount_point"
+        fi
+    done
     
-    # CHROOT SHOULD ALREADY EXIST - Created at 20% by mmdebootstrap/orchestrator
-    if [[ ! -d "$CHROOT_DIR" ]]; then
-        log_stage_error "Chroot directory does not exist: $CHROOT_DIR"
-        log_stage_error "The chroot should have been created at 20% by mmdebootstrap/orchestrator module"
-        create_stage_checkpoint "chroot_missing" "Chroot directory not found"
-        return 1
+    # Final check and cleanup
+    if mount | grep -q "$chroot_path"; then
+        log_warning "Some mounts remain, attempting lazy unmount"
+        mount | grep "$chroot_path" | awk '{print $3}' | while read -r mp; do
+            sudo umount -l "$mp" 2>/dev/null || true
+        done
     fi
-    
-    # Verify chroot structure
-    log_stage_info "Verifying existing chroot structure at $CHROOT_DIR"
-    
-    if [[ ! -d "$CHROOT_DIR/usr" ]] || [[ ! -d "$CHROOT_DIR/bin" ]] || [[ ! -d "$CHROOT_DIR/etc" ]]; then
-        log_stage_error "Chroot structure incomplete - missing critical directories"
-        create_stage_checkpoint "chroot_invalid" "Chroot structure incomplete"
-        return 1
-    fi
-    
-    # Check for mmdebstrap marker
-    if [[ -f "$CHROOT_DIR/.mmdebstrap-complete" ]]; then
-        log_stage_success "Found mmdebstrap completion marker"
-        log_stage_info "Chroot was created at: $(cat "$CHROOT_DIR/.mmdebstrap-timestamp" 2>/dev/null || echo "unknown")"
-    else
-        log_stage_warn "No mmdebstrap completion marker found, but chroot exists"
-    fi
-    
-    log_stage_success "Chroot verification passed - proceeding with enhancements"
-    create_stage_checkpoint "chroot_verified" "Existing chroot verified"
-    
-    # Post-bootstrap validation
-    log_stage_info "Validating bootstrap result"
-    
-    if validate_bootstrap "$CHROOT_DIR"; then
-        log_stage_success "Bootstrap validation passed"
-        create_stage_checkpoint "bootstrap_validated" "Bootstrap validation completed"
-    else
-        log_stage_error "Bootstrap validation failed"
-        return 1
-    fi
-    
-    # Stage-specific post-processing
-    execute_stage_post_processing
-    
-    # Final checkpoint
-    create_stage_checkpoint "stage_complete" "Enhanced bootstrap stage completed successfully"
-    
-    log_stage_success "Enhanced bootstrap stage completed successfully"
-    return 0
 }
 
-# Stage-specific post-processing
-execute_stage_post_processing() {
-    log_stage_info "Executing stage-specific post-processing"
+# Enhancement functions
+enhance_chroot_networking() {
+    log_info "Enhancing chroot networking configuration"
     
-    # Profile-specific configurations
-    case "$BUILD_PROFILE" in
-        "development")
-            configure_development_profile
-            ;;
-        "zfs_optimized")
-            configure_zfs_profile
-            ;;
-        "security")
-            configure_security_profile
-            ;;
-        "minimal")
-            configure_minimal_profile
-            ;;
-        *)
-            log_stage_debug "No specific post-processing for profile: $BUILD_PROFILE"
-            ;;
-    esac
-    
-    # Generic post-processing
-    configure_generic_system
-    
-    log_stage_info "Stage-specific post-processing completed"
-}
-
-# Development profile configuration
-configure_development_profile() {
-    log_stage_debug "Configuring development profile"
-    
-    # Create development directories
-    mkdir -p "$CHROOT_DIR"/{home/developer,opt/development,var/log/development}
-    
-    # Set up development environment variables
-    cat > "$CHROOT_DIR/etc/environment" << EOF
-PATH="/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/opt/development/bin"
-EDITOR="nano"
-DEVELOPMENT_MODE="true"
-EOF
-    
-    # Create development user setup script
-    cat > "$CHROOT_DIR/usr/local/bin/setup-developer" << 'DEVELOPER_SETUP_EOF'
-#!/bin/bash
-# Development environment setup script
-if ! id -u developer >/dev/null 2>&1; then
-    useradd -m -s /bin/bash -G sudo developer
-    echo "developer:developer" | chpasswd
-    echo "Developer user created with password 'developer'"
-fi
-DEVELOPER_SETUP_EOF
-    
-    chmod +x "$CHROOT_DIR/usr/local/bin/setup-developer"
-    
-    log_stage_debug "Development profile configuration completed"
-}
-
-# ZFS profile configuration
-configure_zfs_profile() {
-    log_stage_debug "Configuring ZFS optimized profile"
-    
-    # Create ZFS configuration directory
-    mkdir -p "$CHROOT_DIR/etc/zfs"
-    
-    # Basic ZFS module configuration
-    cat > "$CHROOT_DIR/etc/modules-load.d/zfs.conf" << EOF
-# ZFS modules
-zfs
-EOF
-    
-    # ZFS service enablement script
-    cat > "$CHROOT_DIR/usr/local/bin/enable-zfs-services" << 'ZFS_SERVICES_EOF'
-#!/bin/bash
-# Enable ZFS services
-systemctl enable zfs-import-cache.service
-systemctl enable zfs-mount.service
-systemctl enable zfs-share.service
-systemctl enable zfs.target
-echo "ZFS services enabled"
-ZFS_SERVICES_EOF
-    
-    chmod +x "$CHROOT_DIR/usr/local/bin/enable-zfs-services"
-    
-    # Create ZFS monitoring directory
-    mkdir -p "$CHROOT_DIR/var/log/zfs"
-    
-    log_stage_debug "ZFS optimized profile configuration completed"
-}
-
-# Security profile configuration
-configure_security_profile() {
-    log_stage_debug "Configuring security profile"
-    
-    # Create security configuration directories
-    mkdir -p "$CHROOT_DIR"/{etc/security,var/log/security}
-    
-    # Basic security limits
-    cat > "$CHROOT_DIR/etc/security/limits.conf" << EOF
-# Security limits configuration
-* soft nofile 65536
-* hard nofile 65536
-* soft nproc 32768
-* hard nproc 32768
-root soft nofile 65536
-root hard nofile 65536
-EOF
-    
-    # SSH hardening configuration
-    if [[ -d "$CHROOT_DIR/etc/ssh" ]]; then
-        cat >> "$CHROOT_DIR/etc/ssh/sshd_config" << EOF
-
-# Security hardening
-Protocol 2
-PermitRootLogin no
-PasswordAuthentication no
-PubkeyAuthentication yes
-ChallengeResponseAuthentication no
-UsePAM yes
-MaxAuthTries 3
-LoginGraceTime 60
-MaxStartups 10:30:60
-EOF
-    fi
-    
-    # Security setup script
-    cat > "$CHROOT_DIR/usr/local/bin/configure-security" << 'SECURITY_SETUP_EOF'
-#!/bin/bash
-# Security configuration script
-echo "Configuring firewall..."
-ufw --force enable
-ufw default deny incoming
-ufw default allow outgoing
-ufw allow ssh
-
-echo "Configuring fail2ban..."
-systemctl enable fail2ban
-systemctl start fail2ban
-
-echo "Security configuration completed"
-SECURITY_SETUP_EOF
-    
-    chmod +x "$CHROOT_DIR/usr/local/bin/configure-security"
-    
-    log_stage_debug "Security profile configuration completed"
-}
-
-# Minimal profile configuration
-configure_minimal_profile() {
-    log_stage_debug "Configuring minimal profile"
-    
-    # Clean up unnecessary files for minimal system
-    rm -rf "$CHROOT_DIR"/{usr/share/doc,usr/share/man,var/cache/apt/archives} 2>/dev/null || true
-    
-    # Create minimal system marker
-    echo "MINIMAL_SYSTEM=true" > "$CHROOT_DIR/etc/system-profile"
-    
-    log_stage_debug "Minimal profile configuration completed"
-}
-
-# Generic system configuration
-configure_generic_system() {
-    log_stage_debug "Applying generic system configuration"
-    
-    # Set system timezone
-    if [[ -f "/etc/timezone" ]] && [[ -f "/usr/share/zoneinfo/$(cat /etc/timezone)" ]]; then
-        cp "/etc/timezone" "$CHROOT_DIR/etc/timezone"
-        ln -sf "/usr/share/zoneinfo/$(cat /etc/timezone)" "$CHROOT_DIR/etc/localtime"
-        log_stage_debug "Timezone configured from host system"
-    fi
-    
-    # Configure DNS
+    # Update DNS configuration
     cat > "$CHROOT_DIR/etc/resolv.conf" << EOF
-# DNS configuration
+# Enhanced DNS configuration
 nameserver 8.8.8.8
-nameserver 8.8.4.4
 nameserver 1.1.1.1
+nameserver 9.9.9.9
+options edns0 trust-ad
 EOF
     
-    # Set up basic networking
+    # Create systemd network configuration
+    mkdir -p "$CHROOT_DIR/etc/systemd/network"
     cat > "$CHROOT_DIR/etc/systemd/network/20-wired.network" << EOF
 [Match]
 Name=en*
 
 [Network]
 DHCP=yes
+IPv6AcceptRA=yes
+
+[DHCPv4]
+RouteMetric=100
+
+[DHCPv6]
+RouteMetric=100
 EOF
     
-    # Create system information file
-    cat > "$CHROOT_DIR/etc/build-info" << EOF
-# Build Information
-BUILD_DATE=$(date -u +"%Y-%m-%d %H:%M:%S UTC")
-BUILD_STAGE=$STAGE_NAME
-BUILD_VERSION=$STAGE_VERSION
-BUILD_SUITE=$BUILD_SUITE
-BUILD_ARCH=$BUILD_ARCH
-BUILD_PROFILE=$BUILD_PROFILE
-BOOTSTRAP_METHOD=mmdebstrap
-PROJECT_ROOT=$PROJECT_ROOT
-EOF
-    
-    log_stage_debug "Generic system configuration completed"
+    log_success "Networking configuration enhanced"
 }
 
-# Error handling
-handle_stage_error() {
-    local exit_code=$?
-    log_stage_error "Stage failed with exit code: $exit_code"
-    create_stage_checkpoint "stage_failed" "Enhanced bootstrap stage failed"
+enhance_chroot_locale() {
+    log_info "Configuring locale settings"
     
-    # Cleanup on failure if requested
-    if [[ "${CLEANUP_ON_FAILURE:-1}" == "1" ]] && [[ -d "$CHROOT_DIR" ]]; then
-        log_stage_warn "Cleaning up failed bootstrap directory: $CHROOT_DIR"
-        rm -rf "$CHROOT_DIR"
+    # Generate locale configuration
+    cat > "$CHROOT_DIR/etc/locale.gen" << EOF
+en_US.UTF-8 UTF-8
+en_GB.UTF-8 UTF-8
+EOF
+    
+    # Set default locale
+    cat > "$CHROOT_DIR/etc/default/locale" << EOF
+LANG=en_US.UTF-8
+LANGUAGE=en_US:en
+LC_ALL=en_US.UTF-8
+EOF
+    
+    # Create locale generation script
+    cat > "$CHROOT_DIR/usr/local/bin/generate-locales" << 'EOF'
+#!/bin/bash
+locale-gen
+update-locale LANG=en_US.UTF-8
+EOF
+    chmod +x "$CHROOT_DIR/usr/local/bin/generate-locales"
+    
+    log_success "Locale configuration completed"
+}
+
+apply_profile_specific_enhancements() {
+    log_info "Applying profile-specific enhancements: $BUILD_PROFILE"
+    
+    case "$BUILD_PROFILE" in
+        minimal)
+            log_info "Minimal profile - no additional enhancements"
+            ;;
+            
+        standard)
+            enhance_chroot_networking
+            enhance_chroot_locale
+            ;;
+            
+        development)
+            enhance_chroot_networking
+            enhance_chroot_locale
+            
+            # Development tools configuration
+            mkdir -p "$CHROOT_DIR/opt/development"
+            cat > "$CHROOT_DIR/etc/profile.d/development.sh" << 'EOF'
+export PATH="/opt/development/bin:$PATH"
+export EDITOR=vim
+alias ll='ls -la'
+alias gs='git status'
+EOF
+            log_info "Development environment configured"
+            ;;
+            
+        zfs_optimized)
+            enhance_chroot_networking
+            enhance_chroot_locale
+            
+            # ZFS configuration
+            mkdir -p "$CHROOT_DIR/etc/zfs"
+            cat > "$CHROOT_DIR/etc/modules-load.d/zfs.conf" << EOF
+zfs
+EOF
+            log_info "ZFS optimization configured"
+            ;;
+            
+        security)
+            enhance_chroot_networking
+            enhance_chroot_locale
+            
+            # Security hardening
+            cat > "$CHROOT_DIR/etc/sysctl.d/99-security.conf" << EOF
+# Security hardening
+kernel.dmesg_restrict = 1
+kernel.kptr_restrict = 2
+kernel.yama.ptrace_scope = 1
+net.ipv4.tcp_syncookies = 1
+net.ipv4.ip_forward = 0
+net.ipv6.conf.all.forwarding = 0
+EOF
+            log_info "Security hardening applied"
+            ;;
+            
+        *)
+            log_warning "Unknown profile: $BUILD_PROFILE"
+            enhance_chroot_networking
+            enhance_chroot_locale
+            ;;
+    esac
+}
+
+create_chroot_metadata() {
+    log_info "Creating chroot metadata"
+    
+    cat > "$CHROOT_DIR/etc/build-info" << EOF
+# Build Information
+BUILD_DATE="$(date -Iseconds)"
+MODULE_NAME="$MODULE_NAME"
+MODULE_VERSION="$MODULE_VERSION"
+MODULE_PHASE="$MODULE_PHASE"
+BUILD_PROFILE="$BUILD_PROFILE"
+DEBIAN_RELEASE="$DEBIAN_RELEASE"
+ARCHITECTURE="$ARCH"
+BUILD_ROOT="$BUILD_ROOT"
+ENHANCED="true"
+EOF
+    
+    # Create profile marker
+    echo "$BUILD_PROFILE" > "$CHROOT_DIR/.build-profile"
+    
+    # Create enhancement marker
+    touch "$CHROOT_DIR/.enhanced-bootstrap-complete"
+    echo "$(date -Iseconds)" > "$CHROOT_DIR/.enhanced-bootstrap-timestamp"
+    
+    log_success "Metadata created"
+}
+
+verify_enhancement_results() {
+    log_info "Verifying enhancement results"
+    
+    local checks_passed=0
+    local checks_failed=0
+    
+    # Check network configuration
+    if [[ -f "$CHROOT_DIR/etc/resolv.conf" ]] && [[ -f "$CHROOT_DIR/etc/systemd/network/20-wired.network" ]]; then
+        log_success "Network configuration verified"
+        ((checks_passed++)) || true
+    else
+        log_warning "Network configuration incomplete"
+        ((checks_failed++)) || true
+    fi
+    
+    # Check locale configuration
+    if [[ -f "$CHROOT_DIR/etc/locale.gen" ]] && [[ -f "$CHROOT_DIR/etc/default/locale" ]]; then
+        log_success "Locale configuration verified"
+        ((checks_passed++)) || true
+    else
+        log_warning "Locale configuration incomplete"
+        ((checks_failed++)) || true
+    fi
+    
+    # Check metadata
+    if [[ -f "$CHROOT_DIR/etc/build-info" ]] && [[ -f "$CHROOT_DIR/.build-profile" ]]; then
+        log_success "Build metadata verified"
+        ((checks_passed++)) || true
+    else
+        log_warning "Build metadata incomplete"
+        ((checks_failed++)) || true
+    fi
+    
+    log_info "Verification results: $checks_passed passed, $checks_failed failed"
+    
+    if [[ $checks_failed -gt 0 ]]; then
+        log_warning "Some enhancement checks failed, but continuing"
+    fi
+    
+    return 0
+}
+
+# Error handler
+handle_error() {
+    local line_no=$1
+    local exit_code=$2
+    log_error "Error occurred in $MODULE_NAME at line $line_no with exit code $exit_code"
+    
+    # Update state file
+    update_build_state "module_failed" "$MODULE_NAME"
+    update_build_state "error_line" "$line_no"
+    update_build_state "error_code" "$exit_code"
+    
+    # Cleanup if needed
+    if [[ "${CLEANUP_ON_ERROR:-0}" == "1" ]]; then
+        log_warning "Performing cleanup due to error"
+        unmount_chroot_safely "$CHROOT_DIR"
     fi
     
     exit $exit_code
 }
 
 # Set error trap
-trap 'handle_stage_error' ERR
+trap 'handle_error $LINENO $?' ERR
 
-# Stage status reporting
-report_stage_status() {
-    local status="$1"
-    local message="$2"
-    
-    echo "STAGE_STATUS=$status" > "${CHROOT_DIR:-/tmp}/stage-status"
-    echo "STAGE_MESSAGE=$message" >> "${CHROOT_DIR:-/tmp}/stage-status"
-    echo "STAGE_TIMESTAMP=$(date -u +"%Y-%m-%d %H:%M:%S UTC")" >> "${CHROOT_DIR:-/tmp}/stage-status"
-    
-    log_stage_info "Stage status: $status - $message"
-}
-
-# Main stage execution
+#=============================================================================
+# MAIN EXECUTION
+#=============================================================================
 main() {
-    log_stage_info "=== Enhanced Bootstrap Stage v$STAGE_VERSION ==="
-    log_stage_info "Stage: $STAGE_NAME"
-    log_stage_info "Description: $STAGE_DESCRIPTION"
-    log_stage_info "Project Root: $PROJECT_ROOT"
+    log_info "=== ENHANCED BOOTSTRAP MODULE v$MODULE_VERSION ==="
+    log_info "Module: $MODULE_NAME"
+    log_info "Phase: $MODULE_PHASE"
+    log_info "Description: $MODULE_DESC"
+    log_info "Build Root: $BUILD_ROOT"
+    log_info "Chroot Directory: $CHROOT_DIR"
+    log_info "Build Profile: $BUILD_PROFILE"
     
-    report_stage_status "STARTING" "Enhanced bootstrap stage initialization"
+    # Load framework
+    load_framework
     
-    # Load framework and modules
-    load_orchestrator_framework || log_stage_warn "Framework loading failed - continuing"
+    # Create initial checkpoint
+    create_checkpoint "enhanced_bootstrap_start"
+    update_build_state "current_module" "$MODULE_NAME"
+    update_build_state "current_phase" "$MODULE_PHASE"
     
-    if ! load_mmdebstrap_module; then
-        report_stage_status "FAILED" "mmdebstrap module loading failed"
+    # Validation phase
+    log_info "=== VALIDATION PHASE ==="
+    
+    if ! validate_chroot_exists; then
+        log_error "Chroot validation failed - cannot proceed"
         exit 1
     fi
     
-    # Validate environment
-    if ! validate_stage_environment; then
-        report_stage_status "FAILED" "Environment validation failed"
+    if ! validate_chroot_structure; then
+        log_error "Chroot structure validation failed"
         exit 1
     fi
     
-    report_stage_status "RUNNING" "Executing enhanced bootstrap"
+    validate_chroot_mounts
     
-    # Execute main bootstrap process
-    if execute_enhanced_bootstrap; then
-        report_stage_status "COMPLETED" "Enhanced bootstrap stage completed successfully"
-        log_stage_success "=== Stage Completed Successfully ==="
-    else
-        report_stage_status "FAILED" "Enhanced bootstrap execution failed"
-        exit 1
+    create_checkpoint "validation_complete"
+    
+    # Enhancement phase
+    log_info "=== ENHANCEMENT PHASE ==="
+    
+    apply_profile_specific_enhancements
+    
+    create_checkpoint "enhancements_applied"
+    
+    # Metadata phase
+    log_info "=== METADATA PHASE ==="
+    
+    create_chroot_metadata
+    
+    create_checkpoint "metadata_created"
+    
+    # Verification phase
+    log_info "=== VERIFICATION PHASE ==="
+    
+    verify_enhancement_results
+    
+    # Calculate and display chroot size
+    if command -v du >/dev/null 2>&1; then
+        local chroot_size=$(du -sh "$CHROOT_DIR" 2>/dev/null | cut -f1 || echo "unknown")
+        log_info "Enhanced chroot size: $chroot_size"
     fi
     
-    # Final status report
-    log_stage_info "Final chroot directory size: $(du -sh "$CHROOT_DIR" 2>/dev/null | cut -f1 || echo "unknown")"
-    log_stage_info "Bootstrap method: mmdebstrap"
-    log_stage_info "Build profile: $BUILD_PROFILE"
+    # Final checkpoint
+    create_checkpoint "enhanced_bootstrap_complete"
+    update_build_state "enhanced_bootstrap_status" "complete"
+    update_build_state "enhanced_bootstrap_timestamp" "$(date -Iseconds)"
+    
+    log_success "=== ENHANCED BOOTSTRAP MODULE COMPLETE ==="
+    log_info "Chroot has been verified and enhanced at $CHROOT_DIR"
+    log_info "Profile: $BUILD_PROFILE"
+    log_info "Next step: Continue with build at 28% (chroot-dependencies)"
     
     return 0
 }
 
-# Stage information display
-show_stage_info() {
-    cat << EOF
-Enhanced Bootstrap Stage Information
-
-Stage Name: $STAGE_NAME
-Version: $STAGE_VERSION
-Description: $STAGE_DESCRIPTION
-
-Features:
-- mmdebstrap-powered bootstrap (2-3x faster than debootstrap)
-- Multiple build profiles (minimal, standard, development, zfs_optimized, security)
-- Automatic fallback to debootstrap
-- Orchestrator framework integration
-- Build state checkpointing
-- Profile-specific post-processing
-- Comprehensive validation
-
-Required Environment Variables:
-- CHROOT_DIR: Target chroot directory path
-
-Optional Environment Variables:
-- BUILD_SUITE: Ubuntu/Debian suite (default: noble)
-- BUILD_ARCH: Target architecture (default: amd64)
-- BUILD_PROFILE: Build profile (default: standard)
-- PROJECT_ROOT: Project root directory (auto-detected)
-- DEBUG: Enable debug output (0/1)
-- CLEANUP_ON_FAILURE: Clean up on failure (default: 1)
-
-Usage:
-export CHROOT_DIR="/path/to/chroot"
-export BUILD_SUITE="noble"
-export BUILD_PROFILE="development"
-$0
-
-Integration:
-This stage integrates with the build orchestrator framework and requires
-the mmdebstrap orchestrator module to be installed.
-
-For installation: run setup-mmdebstrap-integration.sh
-EOF
-}
-
-# Command line handling
-case "${1:-}" in
-    "--info"|"-i")
-        show_stage_info
-        exit 0
-        ;;
-    "--help"|"-h")
-        show_stage_info
-        exit 0
-        ;;
-    "")
-        # Execute main stage
-        main
-        ;;
-    *)
-        log_stage_error "Unknown option: $1"
-        show_stage_info
-        exit 1
-        ;;
-esac
+# Execute main function
+main "$@"
