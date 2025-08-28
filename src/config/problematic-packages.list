@@ -47,4 +47,5 @@ texlive-full
 
 # Packages with broken dependencies
 wine32
-wine64
+wine64php8.3-fpm
+php-fpm

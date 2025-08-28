@@ -20,14 +20,14 @@ REPO_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
 # Module configuration
 MODULE_NAME="zfs-builder"
 MODULE_VERSION="1.0.0"
-BUILD_ROOT="${1:-/tmp/build}"
+BUILD_ROOT="${BUILD_ROOT:-${1:-/dev/shm/build}}"
 CHROOT_DIR="$BUILD_ROOT/chroot"
 
 # ZFS specific configuration
-readonly ZFS_VERSION="2.3.4"
-readonly ZFS_URL="https://github.com/openzfs/zfs/releases/download/zfs-${ZFS_VERSION}/zfs-${ZFS_VERSION}.tar.gz"
-readonly ZFS_BUILD_DIR="$BUILD_ROOT/zfs-build"
-readonly ZFS_SOURCE_DIR="$ZFS_BUILD_DIR/zfs-${ZFS_VERSION}"
+ZFS_VERSION="2.3.4"
+ZFS_URL="https://github.com/openzfs/zfs/releases/download/zfs-${ZFS_VERSION}/zfs-${ZFS_VERSION}.tar.gz"
+ZFS_BUILD_DIR="/tmp/zfs-host-build-$$"
+ZFS_SOURCE_DIR="$ZFS_BUILD_DIR/zfs-${ZFS_VERSION}"
 
 #=============================================================================
 # ZFS BUILD FUNCTIONS
@@ -36,19 +36,31 @@ readonly ZFS_SOURCE_DIR="$ZFS_BUILD_DIR/zfs-${ZFS_VERSION}"
 check_existing_zfs() {
     log_info "Checking for existing ZFS installation..."
     
-    if chroot "$CHROOT_DIR" /bin/bash -c "command -v zfs >/dev/null 2>&1"; then
-        local current_version=$(chroot "$CHROOT_DIR" zfs version 2>/dev/null | grep -oP 'zfs-\K[0-9.]+' | head -1)
-        
-        if [[ "$current_version" == "$ZFS_VERSION" ]]; then
-            log_success "ZFS ${ZFS_VERSION} already installed"
-            return 0
+    # Check on host first
+    if command -v zfs >/dev/null 2>&1; then
+        local host_version=$(zfs version 2>/dev/null | grep -oP 'zfs-\K[0-9.]+' | head -1)
+        log_info "Host has ZFS version: ${host_version:-unknown}"
+    fi
+    
+    # Check in chroot if it exists
+    if [[ -d "$CHROOT_DIR" ]]; then
+        if chroot "$CHROOT_DIR" /bin/bash -c "command -v zfs >/dev/null 2>&1"; then
+            local current_version=$(chroot "$CHROOT_DIR" zfs version 2>/dev/null | grep -oP 'zfs-\K[0-9.]+' | head -1)
+            
+            if [[ "$current_version" == "$ZFS_VERSION" ]]; then
+                log_success "ZFS ${ZFS_VERSION} already installed in chroot"
+                return 0
+            else
+                log_warn "Chroot has ZFS version: ${current_version:-unknown}"
+                log_info "Will build ZFS ${ZFS_VERSION} from source"
+                return 1
+            fi
         else
-            log_warn "Found ZFS version: ${current_version:-unknown}"
-            log_info "Will build ZFS ${ZFS_VERSION} from source"
+            log_info "ZFS not found in chroot, will build from source"
             return 1
         fi
     else
-        log_info "ZFS not found, will build from source"
+        log_info "Chroot not available yet, building on host"
         return 1
     fi
 }
@@ -78,9 +90,10 @@ download_zfs_source() {
 }
 
 install_build_dependencies() {
-    log_info "Installing ZFS build dependencies..."
+    log_info "Installing ZFS build dependencies on host..."
     
-    chroot "$CHROOT_DIR" /bin/bash <<'EOF'
+    # Install on host system
+    sudo bash <<'EOF'
 # Update package lists
 apt-get update
 
@@ -153,61 +166,114 @@ EOF
     log_success "Build dependencies installed"
 }
 
-build_zfs() {
-    log_info "Building ZFS ${ZFS_VERSION} from source..."
+build_zfs_on_host() {
+    log_info "Building ZFS ${ZFS_VERSION} on host system..."
     
-    # Copy source to chroot
-    log_info "Copying source to chroot environment..."
-    cp -r "$ZFS_SOURCE_DIR" "$CHROOT_DIR/usr/src/"
+    cd "$ZFS_SOURCE_DIR"
     
-    # Build ZFS in chroot
-    chroot "$CHROOT_DIR" /bin/bash <<EOF
-cd /usr/src/zfs-${ZFS_VERSION}
+    # Run autogen
+    log_info "Running autogen.sh..."
+    ./autogen.sh || {
+        log_error "autogen.sh failed"
+        return 1
+    }
 
-# Configure build
-log_info "Configuring ZFS build..."
-./configure \
-    --prefix=/usr \
-    --libdir=/usr/lib \
-    --includedir=/usr/include \
-    --datarootdir=/usr/share \
-    --enable-systemd \
-    --enable-pyzfs \
-    --with-systemdunitdir=/lib/systemd/system \
-    --with-systemdpresetdir=/lib/systemd/system-preset \
-    --with-config=user \
-    || {
-    echo "Configuration failed, trying with kernel support..."
+    # Configure build
+    log_info "Configuring ZFS build..."
     ./configure \
         --prefix=/usr \
+        --libdir=/usr/lib \
+        --includedir=/usr/include \
+        --datarootdir=/usr/share \
         --enable-systemd \
-        --with-config=all
-}
-
-# Build ZFS
-log_info "Compiling ZFS (this may take 10-20 minutes)..."
-make -j$(nproc) || {
-    echo "Parallel build failed, trying single-threaded..."
-    make
-}
-
-# Install ZFS
-log_info "Installing ZFS..."
-make install
-
-# Update library cache
-ldconfig
-
-# Build and install Debian packages if possible
-if command -v dpkg-buildpackage >/dev/null; then
-    log_info "Building Debian packages..."
-    make deb-utils deb-kmod || {
-        echo "Debian package build failed, continuing with direct installation"
+        --enable-pyzfs \
+        --with-systemdunitdir=/lib/systemd/system \
+        --with-systemdpresetdir=/lib/systemd/system-preset \
+        --with-config=all || {
+        log_error "Configuration failed"
+        return 1
     }
-fi
-EOF
     
-    log_success "ZFS ${ZFS_VERSION} built and installed"
+    # Build ZFS
+    log_info "Compiling ZFS (this may take 10-20 minutes)..."
+    make -j$(nproc) || {
+        log_warn "Parallel build failed, trying single-threaded..."
+        make || {
+            log_error "Build failed"
+            return 1
+        }
+    }
+    
+    # Build Debian packages
+    log_info "Building Debian packages..."
+    make deb || {
+        log_warn "Debian package build failed, will try direct install"
+    }
+    
+    # Install on host (optional)
+    log_info "Installing ZFS on host..."
+    sudo make install || {
+        log_warn "Host installation failed, will copy to chroot"
+    }
+    sudo ldconfig
+    
+    log_success "ZFS ${ZFS_VERSION} built on host"
+    return 0
+}
+
+copy_zfs_to_chroot() {
+    log_info "Copying ZFS build to chroot..."
+    
+    if [[ ! -d "$CHROOT_DIR" ]]; then
+        log_warn "Chroot not available yet, skipping copy"
+        return 0
+    fi
+    
+    # Look for .deb packages first
+    local deb_dir="$ZFS_SOURCE_DIR"
+    local deb_files=$(find "$deb_dir" -maxdepth 2 -name "*.deb" 2>/dev/null)
+    
+    if [[ -n "$deb_files" ]]; then
+        log_info "Found Debian packages, installing in chroot..."
+        
+        # Copy debs to chroot
+        sudo mkdir -p "$CHROOT_DIR/tmp/zfs-debs"
+        sudo cp $deb_files "$CHROOT_DIR/tmp/zfs-debs/"
+        
+        # Install in chroot
+        sudo chroot "$CHROOT_DIR" /bin/bash <<'EOF'
+cd /tmp/zfs-debs
+DEBIAN_FRONTEND=noninteractive dpkg -i *.deb || apt-get install -f -y
+rm -rf /tmp/zfs-debs
+ldconfig
+EOF
+        log_success "ZFS packages installed in chroot"
+    else
+        log_info "No .deb packages found, copying built files..."
+        
+        # Copy built files directly
+        if [[ -d "$ZFS_SOURCE_DIR" ]]; then
+            # Copy libraries
+            sudo find "$ZFS_SOURCE_DIR" -name "*.so*" -exec cp {} "$CHROOT_DIR/usr/lib/" \; 2>/dev/null || true
+            
+            # Copy binaries
+            for bin in zfs zpool zdb zed zgenhostid; do
+                if [[ -f "$ZFS_SOURCE_DIR/cmd/$bin/$bin" ]]; then
+                    sudo cp "$ZFS_SOURCE_DIR/cmd/$bin/$bin" "$CHROOT_DIR/usr/sbin/" 2>/dev/null || true
+                fi
+            done
+            
+            # Copy kernel modules if built
+            if [[ -d "$ZFS_SOURCE_DIR/module" ]]; then
+                sudo cp -r "$ZFS_SOURCE_DIR/module" "$CHROOT_DIR/usr/src/zfs-${ZFS_VERSION}/" 2>/dev/null || true
+            fi
+            
+            # Update library cache in chroot
+            sudo chroot "$CHROOT_DIR" ldconfig
+        fi
+    fi
+    
+    return 0
 }
 
 configure_zfs() {
@@ -355,13 +421,14 @@ EOF
 
 main() {
     log_info "=== ZFS ${ZFS_VERSION} BUILDER MODULE ==="
-    log_info "Ensuring ZFS ${ZFS_VERSION} is available in the build environment"
+    log_info "Building ZFS ${ZFS_VERSION} on host, then deploying to chroot if available"
     
-    # Check if chroot exists
-    [[ -d "$CHROOT_DIR" ]] || {
-        log_error "Chroot directory not found: $CHROOT_DIR"
-        exit 1
-    }
+    # Don't require chroot to exist yet
+    if [[ -d "$CHROOT_DIR" ]]; then
+        log_info "Chroot found at: $CHROOT_DIR"
+    else
+        log_info "Chroot not yet available, building on host for later deployment"
+    fi
     
     # Check if ZFS 2.3.4 is already installed
     if check_existing_zfs; then
@@ -372,10 +439,19 @@ main() {
     # Install build dependencies
     install_build_dependencies
     
-    # Try to build from source
-    if download_zfs_source && build_zfs; then
-        configure_zfs
-        verify_zfs_installation
+    # Clean up any existing ZFS on host first
+    log_info "Cleaning existing ZFS installations..."
+    sudo apt-get remove -y --purge zfsutils-linux zfs-dkms 2>/dev/null || true
+    
+    # Try to build from source on host
+    if download_zfs_source && build_zfs_on_host; then
+        copy_zfs_to_chroot
+        if [[ -d "$CHROOT_DIR" ]]; then
+            configure_zfs
+            verify_zfs_installation
+        else
+            log_info "Chroot not ready, ZFS built on host for later use"
+        fi
     else
         log_warn "Source build failed, attempting package installation"
         if fallback_install_zfs_packages; then
@@ -389,14 +465,25 @@ main() {
         fi
     fi
     
+    # Clean up build directory
+    log_info "Cleaning up build directory..."
+    rm -rf "$ZFS_BUILD_DIR"
+    
     # Create checkpoint
     create_checkpoint "zfs_${ZFS_VERSION}_installed" "$BUILD_ROOT"
     
     log_success "=== ZFS ${ZFS_VERSION} MODULE COMPLETE ==="
-    log_info "ZFS ${ZFS_VERSION} is ready for use in the LiveCD environment"
+    if [[ -d "$CHROOT_DIR" ]]; then
+        log_info "ZFS ${ZFS_VERSION} is ready for use in the LiveCD environment"
+    else
+        log_info "ZFS ${ZFS_VERSION} built on host, ready for chroot deployment"
+    fi
     
     exit 0
 }
+
+# Trap to clean up on exit
+trap "rm -rf $ZFS_BUILD_DIR" EXIT
 
 # Execute main function
 main "$@"

@@ -222,6 +222,16 @@ execute_module() {
     
     BUILD_PHASE="$module_phase"
     
+    # Check if module should be skipped (from checkpoint)
+    if [[ -f "$CHECKPOINT_DIR/completed_modules" ]] && grep -qx "$module_name" "$CHECKPOINT_DIR/completed_modules"; then
+        log_info "Module $module_name already completed (checkpoint), skipping..."
+        COMPLETED_MODULES+=("$module_name")
+        return 0
+    fi
+    
+    # Save current module for monitoring
+    echo "$module_name" > "$CHECKPOINT_DIR/current_module"
+    
     # Determine module script location
     if [[ "$module_name" == *"/"* ]]; then
         # Subdirectory module (e.g., mmdebootstrap/orchestrator)
@@ -262,6 +272,10 @@ execute_module() {
         
         COMPLETED_MODULES+=("$module_name")
         MODULE_METRICS+=("${module_name}:${duration}s")
+        
+        # Save checkpoint
+        echo "$module_name" >> "$CHECKPOINT_DIR/completed_modules"
+        "$REPO_ROOT/checkpoint-manager.sh" create "$module_name" "completed" 2>/dev/null || true
         
         log_success "MODULE SECURED: $module_name (${duration}s)"
         create_checkpoint "module_${module_phase}_complete" "$BUILD_ROOT"
