@@ -218,13 +218,14 @@ unmount_chroot_filesystems() {
     
     log_info "Unmounting chroot filesystems..."
     
-    # Kill processes using chroot first
+    # Kill processes using chroot first (with timeout to prevent hanging)
     if command -v fuser >/dev/null 2>&1; then
-        if fuser "$chroot_path" 2>/dev/null; then
+        # Use timeout to prevent fuser from hanging
+        if timeout 2 fuser "$chroot_path" 2>/dev/null; then
             log_warning "Terminating processes using chroot..."
-            fuser -TERM "$chroot_path" 2>/dev/null || true
+            timeout 2 fuser -TERM "$chroot_path" 2>/dev/null || true
             sleep 2
-            fuser -KILL "$chroot_path" 2>/dev/null || true
+            timeout 2 fuser -KILL "$chroot_path" 2>/dev/null || true
             sleep 1
         fi
     fi
