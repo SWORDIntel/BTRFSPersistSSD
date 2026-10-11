@@ -735,13 +735,9 @@ Fork it, break it, fix it, improve it. PRs welcome.
 4. Add more packages, never remove
 5. Maintain backwards compatibility
 
-## 📜 License
+## License
 
-**WTFPL + DICE** - Do What The F*** You Want To Public License
-
-With the dice clause: If you make money, roll 2d6 for my percentage.
-
-See [LICENSE](LICENSE) for the full comedic text.
+This project is licensed under the **SWORD Restricted Source Licence v1.0 (SRSL-1.0)**. Personal and non-commercial use is permitted under its terms; commercial exploitation requires a separate written agreement. See [LICENSE](LICENSE).
 
 ## 🙏 Acknowledgments
 
